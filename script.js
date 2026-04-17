@@ -262,11 +262,46 @@ window.addEventListener('DOMContentLoaded', function() {
     // 右下角弹窗广告
     setupPopupAd();
     
-
+    // 音频控制
+    setupAudio();
     
     // 更新用户导航链接
     updateUserLinks();
 });
+
+// 设置音频控制
+function setupAudio() {
+    const audio = document.getElementById('background-music');
+    const audioToggle = document.getElementById('audio-toggle');
+    
+    if (audio && audioToggle) {
+        // 初始状态为暂停
+        audio.pause();
+        audioToggle.classList.add('paused');
+        
+        // 点击切换播放状态
+        audioToggle.addEventListener('click', function() {
+            if (audio.paused) {
+                audio.play().catch(function(error) {
+                    console.log('Audio playback prevented:', error);
+                });
+                audioToggle.classList.remove('paused');
+            } else {
+                audio.pause();
+                audioToggle.classList.add('paused');
+            }
+        });
+        
+        // 监听播放状态
+        audio.addEventListener('play', function() {
+            audioToggle.classList.remove('paused');
+        });
+        
+        audio.addEventListener('pause', function() {
+            audioToggle.classList.add('paused');
+        });
+    }
+}
 
 // 更新用户导航链接
 function updateUserLinks() {
@@ -536,19 +571,45 @@ function setupPopupAd() {
     if (!closeButton) return;
     
     const leftCloseBtn = document.querySelector('.left-close-btn');
+    const popupAudio = document.getElementById('popup-audio');
     
     // 5秒后显示弹窗广告和左侧假关闭按钮
     setTimeout(function() {
         popupAd.style.display = 'block';
         if (leftCloseBtn) {
             leftCloseBtn.style.display = 'block';
+            // 计算弹窗广告高度并定位假关闭按钮
+            const popupHeight = popupAd.offsetHeight;
+            leftCloseBtn.style.bottom = popupHeight + 'px';
+            leftCloseBtn.style.right = '0';
         }
     }, 5000);
+    
+    // 鼠标悬停时开始动画和播放音频
+    popupAd.addEventListener('mouseenter', function() {
+        popupAd.style.animation = 'pulse 0.5s infinite ease-in-out';
+        if (popupAudio) {
+            popupAudio.play().catch(function(error) {
+                console.log('Popup audio playback prevented:', error);
+            });
+        }
+    });
+    
+    // 鼠标移开时停止动画和暂停音频
+    popupAd.addEventListener('mouseleave', function() {
+        popupAd.style.animation = 'none';
+        if (popupAudio) {
+            popupAudio.pause();
+        }
+    });
     
     closeButton.addEventListener('click', function() {
         popupAd.style.display = 'none';
         if (leftCloseBtn) {
             leftCloseBtn.style.display = 'none';
+        }
+        if (popupAudio) {
+            popupAudio.pause();
         }
     });
 }
