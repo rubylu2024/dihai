@@ -502,64 +502,83 @@ function setupFloatingAd() {
     // 立即显示浮窗导航图标
     ad.style.display = 'block';
     
-    // 等待广告元素完全渲染，获取正确的尺寸
-    setTimeout(function() {
-        const adWidth = ad.offsetWidth;
-        const adHeight = ad.offsetHeight;
-        const windowWidth = window.innerWidth;
-        const windowHeight = window.innerHeight;
+    let adWidth = 0;
+    let adHeight = 0;
+    let windowWidth = 0;
+    let windowHeight = 0;
+    let x = 20;
+    let y = 0;
+    let dx = 0.5;
+    let dy = 0.5;
+    let animationId = null;
+    
+    function updateDimensions() {
+        adWidth = ad.offsetWidth;
+        adHeight = ad.offsetHeight;
+        windowWidth = window.innerWidth;
+        windowHeight = window.innerHeight;
         
-        // 计算初始位置，确保垂直居中
-        let x = 20;
-        let y = (windowHeight - adHeight) / 2;
-        let dx = 0.5;
-        let dy = 0.5;
-        let animationId = null;
+        // 确保当前位置在边界内
+        x = Math.max(0, Math.min(x, windowWidth - adWidth));
+        y = Math.max(0, Math.min(y, windowHeight - adHeight));
+    }
+    
+    function animate() {
+        updateDimensions();
         
-        function animate() {
-            if (x + adWidth >= windowWidth) {
-                x = windowWidth - adWidth;
-                dx = -Math.abs(dx);
-            } else if (x <= 0) {
-                x = 0;
-                dx = Math.abs(dx);
-            }
-            
-            if (y + adHeight >= windowHeight) {
-                y = windowHeight - adHeight;
-                dy = -Math.abs(dy);
-            } else if (y <= 0) {
-                y = 0;
-                dy = Math.abs(dy);
-            }
-            
-            x += dx;
-            y += dy;
-            
-            ad.style.left = x + 'px';
-            ad.style.top = y + 'px';
-            ad.style.transform = 'none'; // 移除CSS中的transform，使用JavaScript直接控制位置
-            
-            animationId = requestAnimationFrame(animate);
+        if (x + adWidth >= windowWidth) {
+            x = windowWidth - adWidth;
+            dx = -Math.abs(dx);
+        } else if (x <= 0) {
+            x = 0;
+            dx = Math.abs(dx);
         }
         
-        // 初始位置设置
+        if (y + adHeight >= windowHeight) {
+            y = windowHeight - adHeight;
+            dy = -Math.abs(dy);
+        } else if (y <= 0) {
+            y = 0;
+            dy = Math.abs(dy);
+        }
+        
+        x += dx;
+        y += dy;
+        
+        ad.style.left = x + 'px';
+        ad.style.top = y + 'px';
+        ad.style.transform = 'none';
+        
+        animationId = requestAnimationFrame(animate);
+    }
+    
+    // 等待广告元素完全渲染，获取正确的尺寸
+    setTimeout(function() {
+        updateDimensions();
+        y = (windowHeight - adHeight) / 2;
+        
         ad.style.left = x + 'px';
         ad.style.top = y + 'px';
         ad.style.transform = 'none';
         
         animate();
-        
-        ad.addEventListener('mouseenter', function() {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        });
-        
-        ad.addEventListener('mouseleave', function() {
-            animate();
-        });
     }, 100);
+    
+    ad.addEventListener('mouseenter', function() {
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+        }
+    });
+    
+    ad.addEventListener('mouseleave', function() {
+        updateDimensions();
+        animate();
+    });
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', function() {
+        updateDimensions();
+    });
 }
 
 // 设置右下角弹窗广告
@@ -573,15 +592,20 @@ function setupPopupAd() {
     const leftCloseBtn = document.querySelector('.left-close-btn');
     const popupAudio = document.getElementById('popup-audio');
     
+    function updateLeftCloseBtnPosition() {
+        if (leftCloseBtn && popupAd.style.display === 'block') {
+            const popupHeight = popupAd.offsetHeight;
+            leftCloseBtn.style.bottom = popupHeight + 'px';
+            leftCloseBtn.style.right = '0';
+        }
+    }
+    
     // 5秒后显示弹窗广告和左侧假关闭按钮
     setTimeout(function() {
         popupAd.style.display = 'block';
         if (leftCloseBtn) {
             leftCloseBtn.style.display = 'block';
-            // 计算弹窗广告高度并定位假关闭按钮
-            const popupHeight = popupAd.offsetHeight;
-            leftCloseBtn.style.bottom = popupHeight + 'px';
-            leftCloseBtn.style.right = '0';
+            updateLeftCloseBtnPosition();
         }
     }, 5000);
     
@@ -601,6 +625,11 @@ function setupPopupAd() {
         if (popupAudio) {
             popupAudio.pause();
         }
+    });
+    
+    // 监听窗口大小变化，更新假关闭按钮位置
+    window.addEventListener('resize', function() {
+        updateLeftCloseBtnPosition();
     });
     
     closeButton.addEventListener('click', function() {
