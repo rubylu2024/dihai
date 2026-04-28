@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人资料 - 红蜻蜓论坛</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 个人资料页面样式 */
+        .profile-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        
+        .profile-header {
+            background: linear-gradient(to bottom, #DD5A60 0%, #E4ACAF 100%);
+            padding: 20px;
+            border: 1px solid #000;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .avatar-container {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 15px;
+            border-radius: 50%;
+            background-color: white;
+            border: 3px solid #990000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .avatar {
+            width: 100%;
+            height: 100%;
+            background: url('images/红蜻蜓.png') no-repeat center;
+            background-size: contain;
+        }
+        
+        .profile-header h2 {
+            font-size: 24px;
+            color: black;
+            margin-bottom: 5px;
+        }
+        
+        .profile-header p {
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .profile-info {
+            background-color: white;
+            border: 1px solid #000;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .profile-info h3 {
+            font-size: 18px;
+            font-weight: bold;
+            color: #cc0000;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed #ccc;
+            position: relative;
+            padding-left: 15px;
+        }
+        
+        .profile-info h3::before {
+            content: ">";
+            position: absolute;
+            left: 0;
+            color: #cc0000;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 10px;
+            padding: 8px;
+            background-color: #f9f9f9;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .info-label {
+            width: 120px;
+            font-weight: bold;
+            color: #666;
+            flex-shrink: 0;
+        }
+        
+        .info-value {
+            color: #333;
+            flex: 1;
+        }
+        
+        .info-value a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        
+        .info-value a:hover {
+            text-decoration: underline;
+            color: #cc0000;
+        }
+        
+        .profile-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            flex: 1;
+            background-color: white;
+            border: 1px solid #000;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #cc0000;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .recent-posts {
+            background-color: white;
+            border: 1px solid #000;
+            padding: 20px;
+        }
+        
+        .recent-posts h3 {
+            font-size: 18px;
+            font-weight: bold;
+            color: #cc0000;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed #ccc;
+            position: relative;
+            padding-left: 15px;
+        }
+        
+        .recent-posts h3::before {
+            content: ">";
+            position: absolute;
+            left: 0;
+            color: #cc0000;
+        }
+        
+        .post-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .post-item {
+            padding: 10px;
+            border-bottom: 1px dashed #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .post-item:last-child {
+            border-bottom: none;
+        }
+        
+        .post-title {
+            color: #0066cc;
+            text-decoration: none;
+            font-size: 15px;
+        }
+        
+        .post-title:hover {
+            text-decoration: underline;
+            color: #cc0000;
+        }
+        
+        .post-meta {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .no-data {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #cc0000;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background-color: #ffe6e6;
+            color: #cc0000;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #ffcccc;
+            text-align: center;
+        }
+        
+        .btn-logout {
+            background-color: #cc0000;
+            color: white;
+            border: 1px solid #990000;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .btn-logout:hover {
+            background-color: #990000;
+        }
+    </style>
+</head>
+<body>
+    <div class="forum-frame-outer">
+        <div class="forum-content">
+            <div class="forum-frame">
+                <!-- 顶部导航栏 -->
+                <div class="top-nav">
+                    <div class="top-nav-container">
+                        <div class="logo">
+                            <div class="logo-image"></div>
+                            <a href="index.html">红蜻蜓论坛.Beta</a>
+                            <a href="index.html" class="logo-sub">www.reddragonfly.cyou</a>
+                        </div>
+                        <div class="top-links">
+                            <a href="index.html">论坛</a>
+                            <a href="#">博客</a>
+                            <a href="#">问答</a>
+                            <a href="https://www.4399.com" target="_blank">游戏厅</a>
+                            <a href="#">品牌</a>
+                            <a href="#">更多</a>
+                        </div>
+                        <div class="search-box">
+                                <input type="text" placeholder="搜帖、找人、搜版块">
+                                <button>搜索</button>
+                            </div>
+                        <div class="user-links">
+                            <button id="audio-toggle" class="audio-toggle">
+                                <span class="audio-icon">♪</span>
+                            </button>
+                            <a href="#">服务</a>
+                            <div id="user-links-container">
+                                <a href="login.html" id="login-btn">登录</a>
+                                <a href="register.html" id="register-btn">注册</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 主要内容区 -->
+                <div class="main-container">
+                    <div class="main-content">
+                        <div id="loading-overlay" class="loading-overlay">
+                            <div class="loading-spinner"></div>
+                        </div>
+                        
+                        <div id="profile-content" style="display: none;">
+                            <div class="profile-container">
+                                <!-- 个人资料头部 -->
+                                <div class="profile-header">
+                                    <div class="avatar-container">
+                                        <div class="avatar" id="user-avatar"></div>
+                                    </div>
+                                    <h2 id="user-name">用户名</h2>
+                                    <p id="user-email">email@example.com</p>
+                                    <button class="btn-logout" id="logout-btn" style="display: none;">退出登录</button>
+                                </div>
+                                
+                                <!-- 统计数据 -->
+                                <div class="profile-stats">
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="stat-posts">0</div>
+                                        <div class="stat-label">发帖数</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="stat-comments">0</div>
+                                        <div class="stat-label">评论数</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-number" id="stat-likes">0</div>
+                                        <div class="stat-label">获赞数</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 详细信息 -->
+                                <div class="profile-info">
+                                    <h3>基本信息</h3>
+                                    <div class="info-row">
+                                        <span class="info-label">用户名</span>
+                                        <span class="info-value" id="info-username">-</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">邮箱</span>
+                                        <span class="info-value" id="info-email">-</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">注册时间</span>
+                                        <span class="info-value" id="info-joined">-</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">最后活跃</span>
+                                        <span class="info-value" id="info-lastActive">-</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">用户ID</span>
+                                        <span class="info-value" id="info-id">-</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- 最近帖子 -->
+                                <div class="recent-posts">
+                                    <h3>最近发帖</h3>
+                                    <ul class="post-list" id="recent-posts-list">
+                                        <li class="no-data">暂无帖子</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="error-content" style="display: none;" class="error-message">
+                            <p>无法加载个人资料，请先登录</p>
+                            <a href="login.html">点击登录</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const token = localStorage.getItem('flarumToken');
+            const userId = localStorage.getItem('flarumUserId');
+            
+            if (!token) {
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('error-content').style.display = 'block';
+                return;
+            }
+            
+            try {
+                // 获取用户信息
+                const userData = await fetchUserData(userId);
+                if (userData) {
+                    displayUserProfile(userData);
+                }
+                
+                // 获取用户发帖数
+                const stats = await fetchUserStats(userId);
+                displayUserStats(stats);
+                
+                // 获取用户最近帖子
+                const posts = await fetchUserDiscussions(userId);
+                displayRecentPosts(posts);
+                
+                // 显示退出登录按钮
+                document.getElementById('logout-btn').style.display = 'block';
+                document.getElementById('logout-btn').addEventListener('click', function() {
+                    localStorage.removeItem('flarumToken');
+                    localStorage.removeItem('flarumUserId');
+                    window.location.href = 'index.html';
+                });
+                
+            } catch (error) {
+                console.error('加载个人资料失败:', error);
+                document.getElementById('error-content').innerHTML = `
+                    <p>加载个人资料失败: ${error.message}</p>
+                    <a href="login.html">点击重新登录</a>
+                `;
+            } finally {
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('profile-content').style.display = 'block';
+            }
+        });
+        
+        // 获取用户信息
+        async function fetchUserData(userId) {
+            try {
+                const response = await fetch('/api/users/' + userId, {
+                    headers: {
+                        'Accept': 'application/vnd.api+json',
+                        'Authorization': 'Token ' + localStorage.getItem('flarumToken')
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('获取用户信息失败');
+                }
+                
+                const data = await response.json();
+                return data.data;
+            } catch (error) {
+                console.error('获取用户信息失败:', error);
+                return null;
+            }
+        }
+        
+        // 获取用户统计数据
+        async function fetchUserStats(userId) {
+            try {
+                const response = await fetch('/api/users/' + userId + '/discussions', {
+                    headers: {
+                        'Accept': 'application/vnd.api+json',
+                        'Authorization': 'Token ' + localStorage.getItem('flarumToken')
+                    }
+                });
+                
+                if (!response.ok) {
+                    return { posts: 0, comments: 0, likes: 0 };
+                }
+                
+                const data = await response.json();
+                return {
+                    posts: data.data?.length || 0,
+                    comments: 0,
+                    likes: 0
+                };
+            } catch (error) {
+                console.error('获取用户统计失败:', error);
+                return { posts: 0, comments: 0, likes: 0 };
+            }
+        }
+        
+        // 获取用户最近帖子
+        async function fetchUserDiscussions(userId) {
+            try {
+                const response = await fetch('/api/discussions?filter[author]=' + userId + '&page[limit]=5', {
+                    headers: {
+                        'Accept': 'application/vnd.api+json',
+                        'Authorization': 'Token ' + localStorage.getItem('flarumToken')
+                    }
+                });
+                
+                if (!response.ok) {
+                    return [];
+                }
+                
+                const data = await response.json();
+                return data.data || [];
+            } catch (error) {
+                console.error('获取用户帖子失败:', error);
+                return [];
+            }
+        }
+        
+        // 显示用户资料
+        function displayUserProfile(user) {
+            if (!user) return;
+            
+            document.getElementById('user-name').textContent = user.attributes?.username || '未设置';
+            document.getElementById('user-email').textContent = user.attributes?.email || '未设置';
+            document.getElementById('info-username').textContent = user.attributes?.username || '-';
+            document.getElementById('info-email').textContent = user.attributes?.email || '-';
+            document.getElementById('info-id').textContent = user.id || '-';
+            
+            if (user.attributes?.joinedAt) {
+                document.getElementById('info-joined').textContent = formatDate(user.attributes.joinedAt);
+            }
+            if (user.attributes?.lastSeenAt) {
+                document.getElementById('info-lastActive').textContent = formatDate(user.attributes.lastSeenAt);
+            }
+        }
+        
+        // 显示统计数据
+        function displayUserStats(stats) {
+            document.getElementById('stat-posts').textContent = stats.posts || 0;
+            document.getElementById('stat-comments').textContent = stats.comments || 0;
+            document.getElementById('stat-likes').textContent = stats.likes || 0;
+        }
+        
+        // 显示最近帖子
+        function displayRecentPosts(posts) {
+            const list = document.getElementById('recent-posts-list');
+            
+            if (!posts || posts.length === 0) {
+                list.innerHTML = '<li class="no-data">暂无帖子</li>';
+                return;
+            }
+            
+            list.innerHTML = posts.map(post => {
+                const title = post.attributes?.title || '无标题';
+                const createdAt = post.attributes?.createdAt ? formatDate(post.attributes.createdAt) : '';
+                return `
+                    <li class="post-item">
+                        <a href="post.html?id=${post.id}" class="post-title">${title}</a>
+                        <span class="post-meta">${createdAt}</span>
+                    </li>
+                `;
+            }).join('');
+        }
+        
+        // 格式化日期
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '-';
+            const pad = n => String(n).padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
+    </script>
+</body>
+</html>
