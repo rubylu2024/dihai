@@ -161,6 +161,50 @@ function getUserAvatarUrl(user) {
     return 'images/用户头像.png';
 }
 
+function getFlarumReplyStorageKey(discussionId, postId) {
+    return `flarumReplyTo:${String(discussionId)}:${String(postId)}`;
+}
+
+function getStoredFlarumReplyToFloor(discussionId, postId) {
+    const raw = localStorage.getItem(getFlarumReplyStorageKey(discussionId, postId));
+    const n = raw ? Number(raw) : NaN;
+    return Number.isFinite(n) ? n : null;
+}
+
+function storeFlarumReplyToFloor(discussionId, postId, replyToFloor) {
+    const n = Number(replyToFloor);
+    if (!Number.isFinite(n) || n <= 0) return;
+    localStorage.setItem(getFlarumReplyStorageKey(discussionId, postId), String(n));
+}
+
+function extractReplyMetaFromContentHtml(contentHtml) {
+    const original = typeof contentHtml === 'string' ? contentHtml : '';
+
+    if (typeof DOMParser === 'undefined') {
+        const m = original.match(/^\s*<p>\s*回复[\s\S]*?\((\d+)楼\)：\s*<\/p>\s*/);
+        if (m) {
+            return { replyToFloor: Number(m[1]), cleanedHtml: original.replace(m[0], '') };
+        }
+        return { replyToFloor: null, cleanedHtml: original };
+    }
+
+    try {
+        const doc = new DOMParser().parseFromString(original, 'text/html');
+        const first = doc.body.firstElementChild;
+        if (first && first.tagName === 'P') {
+            const text = (first.textContent || '').trim();
+            const m = text.match(/^回复\s+.*?\((\d+)楼\)：\s*$/);
+            if (m) {
+                first.remove();
+                return { replyToFloor: Number(m[1]), cleanedHtml: doc.body.innerHTML };
+            }
+        }
+        return { replyToFloor: null, cleanedHtml: original };
+    } catch {
+        return { replyToFloor: null, cleanedHtml: original };
+    }
+}
+
 function flarumDiscussionToPostData(apiJson) {
     if (!apiJson?.data || apiJson.data.type !== 'discussions') return null;
 
@@ -206,14 +250,12 @@ function flarumDiscussionToPostData(apiJson) {
                 const userId = p.relationships?.user?.data?.id;
                 const user = userId ? pickIncluded(included, 'users', userId) : null;
                 const number = p.attributes?.number;
-                
-                // 获取回复关系
-                let replyTo = null;
-                const replyPostId = p.relationships?.reply?.data?.id;
-                if (replyPostId) {
-                    replyTo = postIdToFloor.get(String(replyPostId));
-                }
-                
+
+                const html = p.attributes?.contentHtml || p.attributes?.content || '';
+                const extracted = extractReplyMetaFromContentHtml(html);
+                const stored = getStoredFlarumReplyToFloor(discussion.id, p.id);
+                const replyTo = extracted.replyToFloor || stored || null;
+
                 return {
                     id: Number(p.id),
                     author: user?.attributes?.displayName || user?.attributes?.username || '匿名用户',
@@ -221,7 +263,7 @@ function flarumDiscussionToPostData(apiJson) {
                     authorAvatar: getUserAvatarUrl(user),
                     time: formatFlarumTime(p.attributes?.createdAt),
                     floor: typeof number === 'number' ? number : 0,
-                    content: p.attributes?.contentHtml || p.attributes?.content || '',
+                    content: extracted.cleanedHtml,
                     replyTo
                 };
             })
@@ -289,20 +331,11 @@ async function flarumCreateDiscussion({ title, content, tagIds = [] }) {
     return json?.data?.id ? String(json.data.id) : null;
 }
 
-async function flarumCreatePost({ discussionId, content, replyTo }) {
+async function flarumCreatePost({ discussionId, content }) {
     const token = getFlarumToken();
     if (!token) {
         alert('请先登录后再回帖。');
         return null;
-    }
-
-    const relationships = {
-        discussion: { data: { type: 'discussions', id: String(discussionId) } }
-    };
-    
-    // 如果是回复某个楼层，添加 replyTo 关系
-    if (replyTo) {
-        relationships.reply = { data: { type: 'posts', id: String(replyTo) } };
     }
 
     const json = await flarumRequest('/posts', {
@@ -311,7 +344,9 @@ async function flarumCreatePost({ discussionId, content, replyTo }) {
             data: {
                 type: 'posts',
                 attributes: { content },
-                relationships
+                relationships: {
+                    discussion: { data: { type: 'discussions', id: String(discussionId) } }
+                }
             }
         }
     });
@@ -1067,7 +1102,7 @@ function setupReplyButtons(postData) {
             const content = this.dataset.content;
             
             replyTargetInput.value = floor;
-            replyContent.value = `回复 ${author}(${floor}楼)：\n`;
+            replyContent.value = `回复 ${author}(${floor}楼)：\n\n`;
             replyBoxTitle.textContent = `回复 ${author}(${floor}楼)`;
             document.getElementById('cancel-reply').style.display = 'inline';
             replyContent.focus();
@@ -1191,9 +1226,16 @@ function setupReplyForm() {
         }
 
         if (isFlarumConfigured()) {
-            const raw = content.replace(/^回复\s+.*?\n/, '').trim();
+            const replyToFloor = replyTo ? Number(replyTo) : null;
+            let contentToSend = content;
+
+            // 如果是回复楼中楼，添加格式化提示
+            if (replyToFloor) {
+                contentToSend = `Reply to ${replyToFloor}L：\n---------------------------\n${content}`;
+            }
+
             try {
-                await flarumCreatePost({ discussionId: postData.id, content: raw || content, replyTo });
+                await flarumCreatePost({ discussionId: postData.id, content: contentToSend, replyTo: replyToFloor });
                 const refreshed = await loadPostData(postId);
                 if (refreshed) renderForumThread(refreshed);
 
@@ -1216,6 +1258,12 @@ function setupReplyForm() {
             return;
         }
 
+        // 如果是回复楼中楼，添加格式化提示
+        let contentToSave = content;
+        if (replyTo) {
+            contentToSave = `Reply to ${replyTo}L：\n---------------------------\n${content}`;
+        }
+
         const newComment = {
             id: Date.now(),
             author: name,
@@ -1223,7 +1271,7 @@ function setupReplyForm() {
             authorAvatar: 'images/用户头像.png',
             time: "2010-04-25 " + new Date().toLocaleTimeString('zh-CN', { hour12: false }),
             floor: postData.comments.length + 2,
-            content: `<p>${content.replace(/\n/g, '</p><p>')}</p>`,
+            content: `<p>${contentToSave.replace(/\n/g, '</p><p>')}</p>`,
             replyTo: replyTo ? parseInt(replyTo) : null
         };
 
