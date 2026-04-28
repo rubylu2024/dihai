@@ -18,6 +18,7 @@ function getFlarumToken() {
 function clearFlarumToken() {
     localStorage.removeItem('flarumToken');
     localStorage.removeItem('flarumUserId');
+    localStorage.removeItem('flarumUsername');
 }
 
 // Flarum 登录
@@ -31,7 +32,19 @@ async function flarumLogin(username, password) {
 
         if (json?.token) {
             localStorage.setItem('flarumToken', json.token);
-            if (json.userId) localStorage.setItem('flarumUserId', String(json.userId));
+            if (json.userId) {
+                localStorage.setItem('flarumUserId', String(json.userId));
+                // 尝试获取用户信息
+                try {
+                    const userJson = await flarumRequest(`/users/${json.userId}`);
+                    if (userJson?.data?.attributes) {
+                        const displayName = userJson.data.attributes.displayName || userJson.data.attributes.username;
+                        localStorage.setItem('flarumUsername', displayName);
+                    }
+                } catch (e) {
+                    console.error('获取用户信息失败:', e);
+                }
+            }
             updateUserLinks();
             return true;
         }
@@ -623,6 +636,34 @@ window.addEventListener('DOMContentLoaded', function() {
             }
             e.preventDefault();
         }
+        
+        // 处理楼中楼楼层链接的平滑滚动
+        if (target && target.classList.contains('quote-floor-link')) {
+            e.preventDefault();
+            const href = target.getAttribute('href');
+            if (href) {
+                // 判断是否需要跳转到其他页面
+                if (href.startsWith('?')) {
+                    // 跳转到其他页面，让浏览器处理
+                    window.location.href = href;
+                } else if (href.startsWith('#post-')) {
+                    // 在当前页内跳转
+                    const floorId = href.substring(6);
+                    const targetElement = document.getElementById(`post-${floorId}`);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                        // 添加高亮效果
+                        targetElement.style.backgroundColor = '#ffffcc';
+                        setTimeout(() => {
+                            targetElement.style.backgroundColor = '';
+                        }, 1500);
+                    }
+                }
+            }
+        }
     });
 
     cleanupLegacyLocalStorage();
@@ -638,6 +679,8 @@ window.addEventListener('DOMContentLoaded', function() {
     // 检查是否是帖子详情页面
     if (window.location.pathname.includes('post.html')) {
         loadPostDetailsFromJson();
+        // 表单事件只绑定一次
+        setupReplyForm();
     }
 
     if (document.querySelector('.forum-posts')) {
@@ -791,10 +834,21 @@ function renderForumThread(postData) {
         } else {
             // 恢复回帖表单（如果之前被禁用了）
             if (replyBox.querySelector('.comments-disabled-msg')) {
+                const isLoggedIn = !!getFlarumToken();
+                
                 replyBox.innerHTML = `
                     <h4>发表回复</h4>
+                    ${isLoggedIn ? `
+                        <div class="current-user-info" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                            <img src="images/用户头像.png" alt="头像" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                            <div>
+                                <div style="font-weight: bold; color: #333;">${localStorage.getItem('flarumUsername') || '已登录用户'}</div>
+                                <div style="font-size: 12px; color: #999;">Lv.1 新手上路</div>
+                            </div>
+                        </div>
+                    ` : ''}
                     <form class="reply-form" id="reply-form">
-                        <input type="text" id="reply-name" placeholder="您的昵称">
+                        ${!isLoggedIn ? '<input type="text" id="reply-name" placeholder="您的昵称">' : ''}
                         <textarea id="reply-content" placeholder="分享你的看法..."></textarea>
                         <input type="hidden" id="reply-target" name="reply-target" value="">
                         <div>
@@ -821,6 +875,21 @@ function renderForumThread(postData) {
         replyTo: null
     }, ...postData.comments];
 
+    // 分页配置
+    const PAGE_SIZE = 20;
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentPage = parseInt(urlParams.get('page')) || 1;
+    const totalPosts = allPosts.length;
+    const totalPages = Math.ceil(totalPosts / PAGE_SIZE);
+    
+    // 计算当前页显示的帖子范围
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const endIndex = Math.min(startIndex + PAGE_SIZE, totalPosts);
+    const currentPagePosts = allPosts.slice(startIndex, endIndex);
+    
+    // 获取当前页可见的楼层范围（用于楼中楼跳转判断）
+    const visibleFloors = currentPagePosts.map(p => p.floor);
+
     // 递归生成引用 HTML
     function generateQuoteHTML(replyToFloor, allPosts, depth = 0) {
         if (!replyToFloor || depth >= 3) return '';
@@ -830,13 +899,52 @@ function renderForumThread(postData) {
         const parentQuote = generateQuoteHTML(target.replyTo, allPosts, depth + 1);
         const plainContent = target.content.replace(/<[^>]*>/g, '').substring(0, 100);
         
+        // 判断目标楼层是否在当前页
+        const isOnCurrentPage = visibleFloors.includes(target.floor);
+        
         return `
             <div class="quote-box quote-level-${depth}">
                 ${parentQuote}
-                <div class="quote-author">引用 ${target.author}(${target.floor}楼) 的发言：</div>
+                <div class="quote-author">引用 ${target.author}(<a href="${isOnCurrentPage ? `#post-${target.floor}` : `?page=${Math.ceil(target.floor / PAGE_SIZE)}#post-${target.floor}`}" class="quote-floor-link" style="color: #0066cc; cursor: pointer; text-decoration: underline;">${target.floor}楼</a>) 的发言：</div>
                 <div class="quote-content">${plainContent}${target.content.replace(/<[^>]*>/g, '').length > 100 ? '...' : ''}</div>
             </div>
         `;
+    }
+
+    // 生成分页导航HTML
+    function generatePaginationHTML() {
+        if (totalPages <= 1) return '';
+        
+        let html = '<div class="pagination" style="margin-top: 20px; text-align: center;">';
+        
+        // 首页和上一页
+        if (currentPage > 1) {
+            html += `<a href="?id=${postData.id}&page=1" style="margin: 0 5px; padding: 4px 8px; border: 1px solid #ccc; text-decoration: none; color: #0066cc;">首页</a>`;
+            html += `<a href="?id=${postData.id}&page=${currentPage - 1}" style="margin: 0 5px; padding: 4px 8px; border: 1px solid #ccc; text-decoration: none; color: #0066cc;">上一页</a>`;
+        }
+        
+        // 页码
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === currentPage) {
+                html += `<span style="margin: 0 5px; padding: 4px 8px; background: #cc0000; color: white;">${i}</span>`;
+            } else {
+                // 只显示当前页附近的页码
+                if (Math.abs(i - currentPage) <= 2 || i === 1 || i === totalPages) {
+                    html += `<a href="?id=${postData.id}&page=${i}" style="margin: 0 5px; padding: 4px 8px; border: 1px solid #ccc; text-decoration: none; color: #0066cc;">${i}</a>`;
+                } else if (Math.abs(i - currentPage) === 3) {
+                    html += `<span style="margin: 0 5px; color: #999;">...</span>`;
+                }
+            }
+        }
+        
+        // 下一页和末页
+        if (currentPage < totalPages) {
+            html += `<a href="?id=${postData.id}&page=${currentPage + 1}" style="margin: 0 5px; padding: 4px 8px; border: 1px solid #ccc; text-decoration: none; color: #0066cc;">下一页</a>`;
+            html += `<a href="?id=${postData.id}&page=${totalPages}" style="margin: 0 5px; padding: 4px 8px; border: 1px solid #ccc; text-decoration: none; color: #0066cc;">末页</a>`;
+        }
+        
+        html += `</div>`;
+        return html;
     }
 
     threadContainer.innerHTML = `
@@ -847,7 +955,7 @@ function renderForumThread(postData) {
             <span>浏览：${postData.viewCount}次</span>
         </div>
         
-        ${allPosts.map((post, index) => {
+        ${currentPagePosts.map((post, index) => {
             const quoteHTML = generateQuoteHTML(post.replyTo, allPosts);
             const plainContent = post.content.replace(/<[^>]*>/g, '').substring(0, 50) + (post.content.replace(/<[^>]*>/g, '').length > 50 ? '...' : '');
             
@@ -878,20 +986,38 @@ function renderForumThread(postData) {
             `;
         }).join('')}
         
+        ${generatePaginationHTML()}
+        
         <div class="forum-stats">
-            <span>共 ${postData.comments.length} 条回复</span>
+            <span>共 ${totalPosts} 楼</span>
+            <span>当前第 ${currentPage} / ${totalPages} 页</span>
             <span>最后回复：${postData.comments.length > 0 ? postData.comments[postData.comments.length - 1].time : postData.publishTime}</span>
         </div>
     `;
 
     setupReplyButtons(postData);
+    
+    // 页面加载后检查URL锚点，进行高亮
+    setTimeout(() => {
+        const hash = window.location.hash;
+        if (hash.startsWith('#post-')) {
+            const floorId = hash.substring(6);
+            const targetElement = document.getElementById(`post-${floorId}`);
+            if (targetElement) {
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetElement.style.backgroundColor = '#ffffcc';
+                setTimeout(() => {
+                    targetElement.style.backgroundColor = '';
+                }, 1500);
+            }
+        }
+    }, 100);
 }
 
 // 设置回复按钮
 function setupReplyButtons(postData) {
     const replyLinks = document.querySelectorAll('.reply-link');
     const replyTargetInput = document.getElementById('reply-target');
-    const cancelReply = document.getElementById('cancel-reply');
     const replyContent = document.getElementById('reply-content');
     const replyBoxTitle = document.querySelector('.reply-box h4');
 
@@ -905,24 +1031,68 @@ function setupReplyButtons(postData) {
             replyTargetInput.value = floor;
             replyContent.value = `回复 ${author}(${floor}楼)：\n`;
             replyBoxTitle.textContent = `回复 ${author}(${floor}楼)`;
-            cancelReply.style.display = 'inline';
+            document.getElementById('cancel-reply').style.display = 'inline';
             replyContent.focus();
         });
     });
+}
 
-    cancelReply.addEventListener('click', function(e) {
+// 获取当前登录用户信息
+async function getCurrentUser() {
+    const token = getFlarumToken();
+    const userId = localStorage.getItem('flarumUserId');
+    
+    if (!token || !userId) {
+        return null;
+    }
+    
+    try {
+        const json = await flarumRequest(`/users/${userId}`);
+        if (json?.data) {
+            return {
+                id: json.data.id,
+                username: json.data.attributes?.username || '',
+                displayName: json.data.attributes?.displayName || json.data.attributes?.username || '',
+                avatar: getUserAvatarUrl(json.data),
+                email: json.data.attributes?.email || ''
+            };
+        }
+    } catch (error) {
+        console.error('获取当前用户信息失败:', error);
+    }
+    
+    return null;
+}
+
+// 设置回复表单事件（只绑定一次）
+function setupReplyForm() {
+    const replyTargetInput = document.getElementById('reply-target');
+    const cancelReply = document.getElementById('cancel-reply');
+    const replyContent = document.getElementById('reply-content');
+    const replyBoxTitle = document.querySelector('.reply-box h4');
+    const replyForm = document.getElementById('reply-form');
+    const replyNameInput = document.getElementById('reply-name');
+
+    // 取消回复按钮
+    cancelReply.removeEventListener('click', cancelReplyHandler);
+    cancelReply.addEventListener('click', cancelReplyHandler);
+
+    function cancelReplyHandler(e) {
         e.preventDefault();
         replyTargetInput.value = '';
         replyContent.value = '';
         replyBoxTitle.textContent = '发表回复';
         cancelReply.style.display = 'none';
-    });
+    }
 
-    const replyForm = document.getElementById('reply-form');
-    replyForm.addEventListener('submit', async function(e) {
+    // 表单提交（使用事件委托或移除旧事件）
+    replyForm.removeEventListener('submit', submitHandler);
+    replyForm.addEventListener('submit', submitHandler);
+
+    async function submitHandler(e) {
         e.preventDefault();
         
-        const name = document.getElementById('reply-name').value.trim();
+        const name = replyNameInput?.value?.trim() || '';
         const content = replyContent.value.trim();
         const replyTo = replyTargetInput.value;
 
@@ -931,11 +1101,19 @@ function setupReplyButtons(postData) {
             return;
         }
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const postId = urlParams.get('id') || '1';
+        let postData = await loadPostData(postId);
+        if (!postData) {
+            alert('无法获取帖子数据');
+            return;
+        }
+
         if (isFlarumConfigured()) {
             const raw = content.replace(/^回复\s+.*?\n/, '').trim();
             try {
                 await flarumCreatePost({ discussionId: postData.id, content: raw || content });
-                const refreshed = await loadPostData(postData.id);
+                const refreshed = await loadPostData(postId);
                 if (refreshed) renderForumThread(refreshed);
 
                 replyForm.reset();
@@ -944,13 +1122,14 @@ function setupReplyButtons(postData) {
                 cancelReply.style.display = 'none';
                 alert('回复发表成功！');
             } catch (error) {
-            console.error('回帖失败:', error);
-            console.error('回帖失败详情:', error.detail);
-            alert('回复发表失败：' + (error.detail || error.message));
+                console.error('回帖失败:', error);
+                console.error('回帖失败详情:', error.detail);
+                alert('回复发表失败：' + (error.detail || error.message));
             }
             return;
         }
 
+        // 非Flarum模式需要昵称
         if (!name) {
             alert('请输入昵称');
             return;
@@ -979,7 +1158,7 @@ function setupReplyButtons(postData) {
         cancelReply.style.display = 'none';
         
         alert('回复发表成功！');
-    });
+    }
 }
 
 // 更新用户导航链接
