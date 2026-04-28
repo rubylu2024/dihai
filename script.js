@@ -1229,13 +1229,15 @@ function setupReplyForm() {
             const replyToFloor = replyTo ? Number(replyTo) : null;
             let contentToSend = content;
 
-            // 如果是回复楼中楼，添加格式化提示
-            if (replyToFloor) {
-                contentToSend = `Reply to ${replyToFloor}L：\n---------------------------\n${content}`;
+            if (replyToFloor && /^回复\s+.*?\(\d+楼\)：\n(?!\n)/.test(contentToSend)) {
+                contentToSend = contentToSend.replace(/^回复\s+.*?\(\d+楼\)：\n/, (m) => m + '\n');
             }
 
             try {
-                await flarumCreatePost({ discussionId: postData.id, content: contentToSend, replyTo: replyToFloor });
+                const newPostId = await flarumCreatePost({ discussionId: postData.id, content: contentToSend });
+                if (replyToFloor && newPostId) {
+                    storeFlarumReplyToFloor(postData.id, newPostId, replyToFloor);
+                }
                 const refreshed = await loadPostData(postId);
                 if (refreshed) renderForumThread(refreshed);
 
@@ -1258,12 +1260,6 @@ function setupReplyForm() {
             return;
         }
 
-        // 如果是回复楼中楼，添加格式化提示
-        let contentToSave = content;
-        if (replyTo) {
-            contentToSave = `Reply to ${replyTo}L：\n---------------------------\n${content}`;
-        }
-
         const newComment = {
             id: Date.now(),
             author: name,
@@ -1271,7 +1267,7 @@ function setupReplyForm() {
             authorAvatar: 'images/用户头像.png',
             time: "2010-04-25 " + new Date().toLocaleTimeString('zh-CN', { hour12: false }),
             floor: postData.comments.length + 2,
-            content: `<p>${contentToSave.replace(/\n/g, '</p><p>')}</p>`,
+            content: `<p>${content.replace(/\n/g, '</p><p>')}</p>`,
             replyTo: replyTo ? parseInt(replyTo) : null
         };
 
