@@ -86,8 +86,12 @@ async function flarumRequest(path, options = {}) {
     }
 
     const token = getFlarumToken();
+    const userId = localStorage.getItem('flarumUserId');
+
     if (token && !headers.Authorization) {
-        headers.Authorization = `Token ${token}`;
+    headers.Authorization = userId
+        ? `Token ${token}; userId=${userId}`
+        : `Token ${token}`;
     }
 
     const response = await fetch(url, {
