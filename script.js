@@ -886,7 +886,7 @@ function renderForumThread(postData) {
     if (!threadContainer) return;
 
     // 更新页面标题
-    document.title = `红蜻蜓论坛.Beta - ${postData.title}`;
+    document.title = `红蜻蜓论坛 - ${postData.title}`;
 
     // 处理不可回帖的情况
     const replyBox = document.getElementById('reply-box');
@@ -978,7 +978,7 @@ function renderForumThread(postData) {
         return `
             <div class="quote-box quote-level-${depth}">
                 ${parentQuote}
-                <div class="quote-author">引用 ${target.author}(<a href="${isOnCurrentPage ? `#post-${target.floor}` : `?page=${Math.ceil(target.floor / PAGE_SIZE)}#post-${target.floor}`}" class="quote-floor-link" style="color: #0066cc; cursor: pointer; text-decoration: underline;">${target.floor}楼</a>) 的发言：</div>
+                <div class="quote-author">引用 ${target.author}(<a href="${isOnCurrentPage ? `#post-${target.floor}` : `?id=${postData.id}&page=${Math.ceil(target.floor / PAGE_SIZE)}#post-${target.floor}`}" class="quote-floor-link" style="color: #0066cc; cursor: pointer; text-decoration: underline;">${target.floor}楼</a>) 的发言：</div>
                 <div class="quote-content">${plainContent}${target.content.replace(/<[^>]*>/g, '').length > 100 ? '...' : ''}</div>
             </div>
         `;
@@ -1138,7 +1138,7 @@ async function getCurrentUser() {
 }
 
 // 更新回复表单以反映登录状态
-function updateReplyFormForLoginStatus() {
+async function updateReplyFormForLoginStatus() {
     const isLoggedIn = !!getFlarumToken();
     const replyBox = document.getElementById('reply-box');
     
@@ -1148,10 +1148,19 @@ function updateReplyFormForLoginStatus() {
         // 已登录：显示用户信息和回复表单
         const username = localStorage.getItem('flarumUsername') || '已登录用户';
         
+        // 获取用户头像
+        let avatarUrl = 'images/用户头像.png';
+        if (isFlarumConfigured()) {
+            const user = await getCurrentUser();
+            if (user && user.avatar) {
+                avatarUrl = user.avatar;
+            }
+        }
+        
         replyBox.innerHTML = `
             <h4>发表回复</h4>
             <div class="current-user-info" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
-                <img src="images/用户头像.png" alt="头像" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                <img src="${avatarUrl}" alt="头像" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
                 <div>
                     <div style="font-weight: bold; color: #333;">${username}</div>
                     <div style="font-size: 12px; color: #999;">Lv.1 新手上路</div>
