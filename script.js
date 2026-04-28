@@ -278,8 +278,43 @@ function flarumDiscussionToPostData(apiJson) {
 
 async function flarumLoadDiscussion(postId) {
     const id = String(postId);
-    const json = await flarumRequest(`/discussions/${encodeURIComponent(id)}?include=posts,posts.user`);
-    return flarumDiscussionToPostData(json);
+
+    const discussionJson = await flarumRequest(
+        `/discussions/${encodeURIComponent(id)}?include=user`
+    );
+
+    let allPosts = [];
+    let allIncluded = discussionJson.included || [];
+    let offset = 0;
+    const limit = 50;
+
+    while (true) {
+        const postsJson = await flarumRequest(
+            `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=${offset}&include=user`
+        );
+
+        const posts = Array.isArray(postsJson.data) ? postsJson.data : [];
+        allPosts = allPosts.concat(posts);
+
+        if (Array.isArray(postsJson.included)) {
+            allIncluded = allIncluded.concat(postsJson.included);
+        }
+
+        if (posts.length < limit) break;
+        offset += limit;
+    }
+
+    discussionJson.included = [
+        ...allIncluded,
+        ...allPosts
+    ];
+
+    discussionJson.data.relationships = discussionJson.data.relationships || {};
+    discussionJson.data.relationships.posts = {
+        data: allPosts.map(p => ({ type: 'posts', id: String(p.id) }))
+    };
+
+    return flarumDiscussionToPostData(discussionJson);
 }
 
 async function flarumLoadDiscussionList() {
@@ -951,9 +986,9 @@ function renderForumThread(postData) {
     // 分页配置
     const PAGE_SIZE = 20;
     const urlParams = new URLSearchParams(window.location.search);
-    const currentPage = parseInt(urlParams.get('page')) || 1;
-    const totalPosts = allPosts.length;
-    const totalPages = Math.ceil(totalPosts / PAGE_SIZE);
+    const totalPages = Math.max(1, Math.ceil(totalPosts / PAGE_SIZE));
+    const requestedPage = parseInt(urlParams.get('page'), 10) || 1;
+    const currentPage = Math.min(Math.max(requestedPage, 1), totalPages);
     
     // 计算当前页显示的帖子范围
     const startIndex = (currentPage - 1) * PAGE_SIZE;
