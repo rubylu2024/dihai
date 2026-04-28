@@ -149,9 +149,13 @@ function flarumDiscussionToPostData(apiJson) {
 
     const discussion = apiJson.data;
     const included = apiJson.included || [];
+    const relationshipPostIds = (discussion.relationships?.posts?.data || [])
+    .map((p) => String(p.id));
+
     const posts = included
-        .filter((x) => x && x.type === 'posts')
-        .sort((a, b) => (a.attributes?.number || 0) - (b.attributes?.number || 0));
+    .filter((x) => x && x.type === 'posts')
+    .filter((p) => relationshipPostIds.includes(String(p.id)))
+    .sort((a, b) => (a.attributes?.number || 0) - (b.attributes?.number || 0));
 
     const firstPost = posts.find((p) => p.attributes?.number === 1) || posts[0];
     const firstUserId = firstPost?.relationships?.user?.data?.id || discussion.relationships?.user?.data?.id;
