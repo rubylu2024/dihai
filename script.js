@@ -986,6 +986,7 @@ function renderForumThread(postData) {
     // 分页配置
     const PAGE_SIZE = 20;
     const urlParams = new URLSearchParams(window.location.search);
+    const totalPosts = allPosts.length;
     const totalPages = Math.max(1, Math.ceil(totalPosts / PAGE_SIZE));
     const requestedPage = parseInt(urlParams.get('page'), 10) || 1;
     const currentPage = Math.min(Math.max(requestedPage, 1), totalPages);
