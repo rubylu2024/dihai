@@ -225,15 +225,6 @@
     
     <script src="script.js"></script>
     <script>
-        async function customRegister(username, email, password) {
-            const response = await fetch('custom-register.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
-            });
-            return await response.json();
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             const registerForm = document.getElementById('register-form');
             const messageContainer = document.getElementById('message-container');
@@ -253,18 +244,31 @@
                 showLoading();
 
                 try {
-                    const result = await customRegister(username, email, password);
-                    if (result.success) {
-                        showMessage('注册成功，请登录', 'success');
-                        setTimeout(() => {
-                            window.location.href = 'login.html';
-                        }, 1500);
-                    } else {
-                        showMessage('注册失败：' + (result.message || '请稍后重试'), 'error');
-                    }
+                    await flarumRegister(username, email, password);
+                    showMessage('注册成功，请登录', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1500);
                 } catch (error) {
                     console.error('注册失败:', error);
-                    showMessage('注册失败：网络错误，请稍后重试', 'error');
+                    let errorMsg = '注册失败';
+                    if (error.detail) {
+                        try {
+                            const errors = JSON.parse(error.detail);
+                            if (errors.errors && Array.isArray(errors.errors)) {
+                                errorMsg = errors.errors.map(e => e.detail || e.title || JSON.stringify(e)).join('; ');
+                            } else if (errors.message) {
+                                errorMsg = errors.message;
+                            } else {
+                                errorMsg = JSON.stringify(errors);
+                            }
+                        } catch {
+                            errorMsg = error.detail;
+                        }
+                    } else if (error.message) {
+                        errorMsg = error.message;
+                    }
+                    showMessage(errorMsg, 'error');
                 } finally {
                     hideLoading();
                 }
