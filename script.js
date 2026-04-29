@@ -1922,6 +1922,7 @@ function setupPopupAd() {
     popupAd.addEventListener('mouseenter', function() {
         popupAd.style.animation = 'pulse 0.5s infinite ease-in-out';
         if (popupAudio) {
+            popupAudio.volume = 1/3; // 在播放前再次设置音量
             popupAudio.play().catch(function(error) {
                 console.log('Popup audio playback prevented:', error);
             });
