@@ -57,7 +57,7 @@ async function flarumLogin(username, password) {
 
 // Flarum 注册
 async function flarumRegister(username, email, password) {
-    const json = await flarumRequest('/users', {
+    const json = await flarumRequest('/register', {
         method: 'POST',
         json: {
             data: {
@@ -71,7 +71,7 @@ async function flarumRegister(username, email, password) {
         }
     });
 
-    return !!json?.data?.id;
+    return !!(json?.data?.id || json?.user || json?.success);
 }
 
 async function flarumRequest(path, options = {}) {
@@ -80,6 +80,7 @@ async function flarumRequest(path, options = {}) {
 
     const headers = {
         'Accept': 'application/vnd.api+json',
+        'X-Requested-With': 'XMLHttpRequest',
         ...options.headers
     };
 
