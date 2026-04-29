@@ -280,11 +280,16 @@ async function flarumLoadDiscussion(postId) {
     const id = String(postId);
 
     try {
+        console.log('flarumLoadDiscussion: 开始加载讨论，id:', id);
+        
         const discussionJson = await flarumRequest(
             `/discussions/${encodeURIComponent(id)}?include=user`
         );
+        
+        console.log('flarumLoadDiscussion: 获取讨论数据成功:', discussionJson?.data?.id);
 
         if (!discussionJson?.data) {
+            console.log('flarumLoadDiscussion: 讨论数据为空');
             return null;
         }
 
@@ -294,11 +299,13 @@ async function flarumLoadDiscussion(postId) {
         const limit = 50;
 
         while (true) {
+            console.log('flarumLoadDiscussion: 正在获取帖子，offset:', offset);
             const postsJson = await flarumRequest(
                 `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=${offset}&include=user`
             );
 
             const posts = Array.isArray(postsJson.data) ? postsJson.data : [];
+            console.log('flarumLoadDiscussion: 获取到', posts.length, '条帖子');
             allPosts = allPosts.concat(posts);
 
             if (Array.isArray(postsJson.included)) {
@@ -308,6 +315,8 @@ async function flarumLoadDiscussion(postId) {
             if (posts.length < limit) break;
             offset += limit;
         }
+
+        console.log('flarumLoadDiscussion: 总共获取到', allPosts.length, '条帖子');
 
         discussionJson.included = [
             ...allIncluded,
@@ -319,9 +328,12 @@ async function flarumLoadDiscussion(postId) {
             data: allPosts.map(p => ({ type: 'posts', id: String(p.id) }))
         };
 
-        return flarumDiscussionToPostData(discussionJson);
+        const result = flarumDiscussionToPostData(discussionJson);
+        console.log('flarumLoadDiscussion: 转换后的数据:', result ? '成功' : '失败');
+        return result;
     } catch (error) {
-        console.error('加载帖子失败:', error);
+        console.error('flarumLoadDiscussion: 加载帖子失败:', error);
+        console.error('flarumLoadDiscussion: 错误详情:', error.detail);
         return null;
     }
 }
@@ -425,6 +437,8 @@ async function flarumCreatePost({ discussionId, content }) {
 // 动态加载帖子数据
 async function loadPostData(postId) {
     try {
+        console.log('loadPostData: 开始加载帖子数据，postId:', postId);
+        
         // 显示加载状态
         const threadContainer = document.getElementById('forum-thread');
         if (threadContainer) {
@@ -432,8 +446,13 @@ async function loadPostData(postId) {
         }
         
         if (isFlarumConfigured()) {
+            console.log('loadPostData: 尝试从Flarum API加载帖子');
             const fromApi = await flarumLoadDiscussion(postId);
-            if (fromApi) return fromApi;
+            console.log('loadPostData: Flarum API返回结果:', fromApi);
+            if (fromApi) {
+                console.log('loadPostData: 成功加载帖子数据');
+                return fromApi;
+            }
             
             // API 返回 null，表示加载失败
             throw new Error('无法从 Flarum API 加载帖子数据');
@@ -441,7 +460,8 @@ async function loadPostData(postId) {
         
         throw new Error('论坛后端未配置');
     } catch (error) {
-        console.error('加载帖子数据失败:', error);
+        console.error('loadPostData: 加载帖子数据失败:', error);
+        console.error('loadPostData: 错误详情:', error.detail);
         // 显示错误提示
         const threadContainer = document.getElementById('forum-thread');
         if (threadContainer) {
@@ -449,6 +469,7 @@ async function loadPostData(postId) {
                 <div style="padding: 40px 20px; text-align: center;">
                     <p style="color: #cc0000; font-size: 16px; margin-bottom: 10px;">抱歉，加载此内容时出错</p>
                     <p style="color: #666; font-size: 14px;">${error.message || '请稍后刷新页面重试'}</p>
+                    <p style="color: #999; font-size: 12px; margin-top: 10px;">错误码: ${error.detail || '未知'}</p>
                 </div>
             `;
         }
