@@ -1360,6 +1360,7 @@ function renderForumThread(postData) {
 
     setupReplyButtons(postData);
     setupDeleteButtons(allPosts, postData);
+    updatePostUserBadges(allPosts);
     
     // 页面加载后检查URL锚点，进行高亮
     setTimeout(() => {
@@ -1480,6 +1481,46 @@ async function setupDeleteButtons(allPosts, postData) {
             });
         }
     }
+}
+
+// 更新帖子中的用户名显示，添加用户组标志
+async function updatePostUserBadges(allPosts) {
+    for (const post of allPosts) {
+        if (!post.userId) continue;
+        
+        const badge = await getUserGroupBadge(post.userId);
+        if (!badge) continue;
+        
+        // 更新帖子中的用户名显示
+        const posterNameElements = document.querySelectorAll(`#post-${post.floor} .poster-name`);
+        for (const element of posterNameElements) {
+            if (!element.textContent.includes(badge)) {
+                element.textContent = badge + element.textContent;
+            }
+        }
+    }
+}
+
+// 获取用户组标志
+async function getUserGroupBadge(userId) {
+    if (!userId) return '';
+    
+    try {
+        const userJson = await flarumRequest(`/users/${userId}`);
+        const groups = userJson?.data?.relationships?.groups?.data || [];
+        
+        // 检查是否是管理员（组ID为1）
+        const isAdmin = groups.some(g => g.id === '1');
+        if (isAdmin) return '[管]';
+        
+        // 检查是否是版主（组ID为2）
+        const isMod = groups.some(g => g.id === '2');
+        if (isMod) return '[版]';
+    } catch {
+        // 忽略错误
+    }
+    
+    return '';
 }
 
 // 检查当前用户是否是管理员
