@@ -1293,6 +1293,17 @@ function renderForumThread(postData) {
         const target = allPosts.find(p => p.floor === replyToFloor);
         if (!target) return '';
 
+        // 检查目标楼层是否被删除
+        const deletedInfo = parseDeletedContent(target.content);
+        if (deletedInfo) {
+            return `
+                <div class="quote-box quote-level-${depth}">
+                    <div class="quote-author">引用 ${target.author}(<span style="color: #999; cursor: default;">${target.floor}楼</span>) 的发言：</div>
+                    <div class="quote-content" style="color: #999;">该楼层已被删除</div>
+                </div>
+            `;
+        }
+
         const parentQuote = generateQuoteHTML(target.replyTo, allPosts, depth + 1);
         const plainContent = target.content.replace(/<[^>]*>/g, '').substring(0, 100);
         
@@ -1357,10 +1368,10 @@ function renderForumThread(postData) {
             // 检查是否是删除标记
             const deletedInfo = parseDeletedContent(post.content);
             if (deletedInfo) {
-                // 显示删除提示
+                // 显示删除提示（包含楼层号）
                 return `
                     <div class="post" id="post-${post.floor}" data-post-id="${post.id}" style="background-color: #f5f5f5; border: 1px dashed #ccc; padding: 15px; text-align: center;">
-                        <p style="color: #999; font-size: 14px;">此楼层已在【${deletedInfo.deletedAt}】被【${deletedInfo.deletedBy}】删除</p>
+                        <p style="color: #999; font-size: 14px;">第 ${post.floor} 楼已在【${deletedInfo.deletedAt}】被【${deletedInfo.deletedBy}】删除</p>
                     </div>
                 `;
             }
@@ -1896,6 +1907,17 @@ function insertNewCommentToPage(comment, postData) {
         if (!replyToFloor || depth >= 3) return '';
         const target = allPosts.find(p => p.floor === replyToFloor);
         if (!target) return '';
+
+        // 检查目标楼层是否被删除
+        const deletedInfo = parseDeletedContent(target.content);
+        if (deletedInfo) {
+            return `
+                <div class="quote-box quote-level-${depth}">
+                    <div class="quote-author">引用 ${target.author}(<span style="color: #999; cursor: default;">${target.floor}楼</span>) 的发言：</div>
+                    <div class="quote-content" style="color: #999;">该楼层已被删除</div>
+                </div>
+            `;
+        }
 
         const parentQuote = generateQuoteHTML(target.replyTo, allPosts, depth + 1);
         const plainContent = target.content.replace(/<[^>]*>/g, '').substring(0, 100);
