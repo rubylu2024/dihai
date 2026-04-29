@@ -351,10 +351,22 @@
 
                 try {
                     await customRegister(username, email, password);
-                    showMessage('注册成功，请登录', 'success');
-                    setTimeout(() => {
-                        window.location.href = 'login.html';
-                    }, 1000);
+                    
+                    // 注册成功，开始自动登录
+                    submitBtn.textContent = '正在登录...';
+                    const loginSuccess = await flarumLogin(username, password);
+                    
+                    if (loginSuccess) {
+                        showMessage('注册成功，正在进入论坛...', 'success');
+                        setTimeout(() => {
+                            window.location.href = 'index.html';
+                        }, 1000);
+                    } else {
+                        showMessage('注册成功，但自动登录失败，请手动登录', 'success');
+                        setTimeout(() => {
+                            window.location.href = 'login.html';
+                        }, 1500);
+                    }
                 } catch (error) {
                     console.error('注册失败:', error);
                     let errorMsg = '注册失败';
@@ -376,10 +388,9 @@
                         errorMsg = error.message;
                     }
                     showMessage(errorMsg, 'error');
-                } finally {
-                    hideLoading();
                     submitBtn.disabled = false;
                     submitBtn.textContent = '注册';
+                    hideLoading();
                 }
             });
 

@@ -90,13 +90,16 @@ async function flarumRequest(path, options = {}) {
         headers['Content-Type'] = 'application/json';
     }
 
-    const token = getFlarumToken();
-    const userId = localStorage.getItem('flarumUserId');
+    // 只有当不是强制匿名且有token时才添加认证头
+    if (!options.anonymous) {
+        const token = getFlarumToken();
+        const userId = localStorage.getItem('flarumUserId');
 
-    if (token && !headers.Authorization) {
-    headers.Authorization = userId
-        ? `Token ${token}; userId=${userId}`
-        : `Token ${token}`;
+        if (token && !headers.Authorization) {
+        headers.Authorization = userId
+            ? `Token ${token}; userId=${userId}`
+            : `Token ${token}`;
+        }
     }
 
     const response = await fetch(url, {
@@ -301,9 +304,21 @@ async function flarumLoadDiscussion(postId) {
     try {
         console.log('flarumLoadDiscussion: 开始加载讨论，id:', id);
         
-        const discussionJson = await flarumRequest(
-            `/discussions/${encodeURIComponent(id)}?include=user`
-        );
+        // 先尝试使用匿名请求加载
+        let discussionJson;
+        try {
+            discussionJson = await flarumRequest(
+                `/discussions/${encodeURIComponent(id)}?include=user`,
+                { anonymous: true }
+            );
+            console.log('flarumLoadDiscussion: 使用匿名请求获取讨论数据成功');
+        } catch (anonError) {
+            console.warn('flarumLoadDiscussion: 匿名请求失败，尝试使用认证请求:', anonError);
+            // 匿名请求失败，尝试使用认证请求
+            discussionJson = await flarumRequest(
+                `/discussions/${encodeURIComponent(id)}?include=user`
+            );
+        }
         
         console.log('flarumLoadDiscussion: 获取讨论数据成功:', discussionJson?.data?.id);
 
@@ -319,9 +334,20 @@ async function flarumLoadDiscussion(postId) {
 
         while (true) {
             console.log('flarumLoadDiscussion: 正在获取帖子，offset:', offset);
-            const postsJson = await flarumRequest(
-                `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=${offset}&include=user`
-            );
+            let postsJson;
+            try {
+                // 尝试使用匿名请求加载帖子
+                postsJson = await flarumRequest(
+                    `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=${offset}&include=user`,
+                    { anonymous: true }
+                );
+            } catch (anonError) {
+                console.warn('flarumLoadDiscussion: 匿名请求帖子失败，尝试使用认证请求:', anonError);
+                // 匿名请求失败，尝试使用认证请求
+                postsJson = await flarumRequest(
+                    `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=${offset}&include=user`
+                );
+            }
 
             const posts = Array.isArray(postsJson.data) ? postsJson.data : [];
             console.log('flarumLoadDiscussion: 获取到', posts.length, '条帖子');
@@ -353,34 +379,39 @@ async function flarumLoadDiscussion(postId) {
     } catch (error) {
         console.error('flarumLoadDiscussion: 加载帖子失败:', error);
         console.error('flarumLoadDiscussion: 错误详情:', error.detail);
-        return null;
+        throw error; // 抛出错误让 loadPostData 处理
     }
 }
 
 async function flarumLoadDiscussionList() {
-    const json = await flarumRequest('/discussions?sort=-createdAt&page[limit]=20&include=user');
-    const discussions = Array.isArray(json?.data) ? json.data : [];
-    const included = json?.included || [];
+    try {
+        const json = await flarumRequest('/discussions?sort=-createdAt&page[limit]=20&include=user', { anonymous: true });
+        const discussions = Array.isArray(json?.data) ? json.data : [];
+        const included = json?.included || [];
 
-    return discussions.map((d) => {
-        const userId = d.relationships?.user?.data?.id;
-        const user = userId ? pickIncluded(included, 'users', userId) : null;
-        const viewCount = d.attributes?.viewCount;
-        const commentCount = d.attributes?.commentCount;
-        return {
-            id: Number(d.id),
-            title: d.attributes?.title || '',
-            author: user?.attributes?.displayName || user?.attributes?.username || '匿名用户',
-            date: (d.attributes?.createdAt || '').slice(0, 10),
-            views: typeof viewCount === 'number' ? viewCount : (typeof commentCount === 'number' ? commentCount : 0)
-        };
-    });
+        return discussions.map((d) => {
+            const userId = d.relationships?.user?.data?.id;
+            const user = userId ? pickIncluded(included, 'users', userId) : null;
+            const viewCount = d.attributes?.viewCount;
+            const commentCount = d.attributes?.commentCount;
+            return {
+                id: Number(d.id),
+                title: d.attributes?.title || '',
+                author: user?.attributes?.displayName || user?.attributes?.username || '匿名用户',
+                date: (d.attributes?.createdAt || '').slice(0, 10),
+                views: typeof viewCount === 'number' ? viewCount : (typeof commentCount === 'number' ? commentCount : 0)
+            };
+        });
+    } catch (error) {
+        console.warn('获取帖子列表失败:', error);
+        return [];
+    }
 }
 
 // 获取最新回复列表
 async function flarumLoadRecentReplies() {
     try {
-        const json = await flarumRequest('/posts?sort=-createdAt&page[limit]=20&include=discussion,user');
+        const json = await flarumRequest('/posts?sort=-createdAt&page[limit]=20&include=discussion,user', { anonymous: true });
         const posts = Array.isArray(json?.data) ? json.data : [];
         const included = json?.included || [];
         
@@ -417,7 +448,7 @@ async function flarumLoadRecentReplies() {
         
         return results;
     } catch (error) {
-        console.error('获取最新回复失败:', error);
+        console.warn('获取最新回复失败:', error);
         return [];
     }
 }
@@ -492,6 +523,7 @@ async function renderDynamicHomeLinks() {
         }
     } catch (error) {
         console.warn('动态加载首页帖子列表失败:', error);
+        // 即使加载失败也不显示错误信息，保持页面安静
     }
 }
 
@@ -675,16 +707,32 @@ async function loadPostData(postId) {
     } catch (error) {
         console.error('loadPostData: 加载帖子数据失败:', error);
         console.error('loadPostData: 错误详情:', error.detail);
-        // 显示错误提示
+        
+        // 检查是否未登录
+        const isLoggedIn = !!getFlarumToken();
+        
+        // 显示登录提示或错误提示
         const threadContainer = document.getElementById('forum-thread');
         if (threadContainer) {
-            threadContainer.innerHTML = `
-                <div style="padding: 40px 20px; text-align: center;">
-                    <p style="color: #cc0000; font-size: 16px; margin-bottom: 10px;">抱歉，加载此内容时出错</p>
-                    <p style="color: #666; font-size: 14px;">${error.message || '请稍后刷新页面重试'}</p>
-                    <p style="color: #999; font-size: 12px; margin-top: 10px;">错误码: ${error.detail || '未知'}</p>
-                </div>
-            `;
+            if (!isLoggedIn) {
+                // 未登录，显示登录提示
+                threadContainer.innerHTML = `
+                    <div style="padding: 40px 20px; text-align: center;">
+                        <p style="color: #cc0000; font-size: 16px; margin-bottom: 10px;">请登录后查看帖子内容</p>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 20px;">登录后可以浏览帖子、发表回复和参与讨论</p>
+                        <a href="login.html?redirect=${encodeURIComponent(window.location.href)}" style="display: inline-block; padding: 10px 20px; background: #cc0000; color: white; text-decoration: none; border-radius: 4px;">立即登录</a>
+                    </div>
+                `;
+            } else {
+                // 已登录但加载失败，显示错误提示
+                threadContainer.innerHTML = `
+                    <div style="padding: 40px 20px; text-align: center;">
+                        <p style="color: #cc0000; font-size: 16px; margin-bottom: 10px;">抱歉，加载此内容时出错</p>
+                        <p style="color: #666; font-size: 14px;">${error.message || '请稍后刷新页面重试'}</p>
+                        <p style="color: #999; font-size: 12px; margin-top: 10px;">错误码: ${error.detail || '未知'}</p>
+                    </div>
+                `;
+            }
         }
         return null;
     }
