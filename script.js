@@ -1721,8 +1721,8 @@ function setupFloatingAd() {
     // 随机初始位置和速度
     let x = Math.random() * (window.innerWidth - 100);
     let y = Math.random() * (window.innerHeight - 100);
-    let dx = (Math.random() > 0.5 ? 1 : -1) * (0.75 + Math.random() * 1);
-    let dy = (Math.random() > 0.5 ? 1 : -1) * (0.75 + Math.random() * 1);
+    let dx = (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.3);
+    let dy = (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.3);
     let animationId = null;
     let isPaused = false;
     
@@ -1799,8 +1799,8 @@ function setupFloatingAd2() {
     // 随机初始位置和速度
     let x = Math.random() * (window.innerWidth - 100);
     let y = Math.random() * (window.innerHeight - 100);
-    let dx = (Math.random() > 0.5 ? 1 : -1) * (0.75 + Math.random() * 1);
-    let dy = (Math.random() > 0.5 ? 1 : -1) * (0.75 + Math.random() * 1);
+    let dx = (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.3);
+    let dy = (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.3);
     let animationId = null;
     let isPaused = false;
     
