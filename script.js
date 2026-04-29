@@ -555,7 +555,7 @@ async function flarumCreatePost({ discussionId, content }) {
 }
 
 // 删除帖子
-async function flarumDeletePost(postId) {
+async function flarumDeletePost(postId, floor) {
     const token = getFlarumToken();
     if (!token) {
         alert('请先登录后再操作。');
@@ -566,6 +566,23 @@ async function flarumDeletePost(postId) {
         await flarumRequest(`/posts/${postId}`, {
             method: 'DELETE'
         });
+        
+        // 记录删除信息到 localStorage，用于刷新后显示提示
+        const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+        const currentUsername = localStorage.getItem('flarumUsername') || '匿名用户';
+        const now = new Date();
+        const deleteTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        
+        deletedPosts.push({
+            postId,
+            floor,
+            deletedBy: currentUsername,
+            deletedAt: deleteTime
+        });
+        
+        // 只保留最近10条删除记录
+        localStorage.setItem('deletedPosts', JSON.stringify(deletedPosts.slice(-10)));
+        
         return true;
     } catch (error) {
         console.error('删除帖子失败:', error);
@@ -1362,6 +1379,7 @@ function renderForumThread(postData) {
     setupReplyButtons(postData);
     setupDeleteButtons(allPosts, postData);
     updatePostUserBadges(allPosts);
+    showDeletedPostsPlaceholder();
     
     // 页面加载后检查URL锚点，进行高亮
     setTimeout(() => {
@@ -1433,19 +1451,18 @@ async function setupDeleteButtons(allPosts, postData) {
                 }
                 
                 // 执行删除
-                const success = await flarumDeletePost(postId);
+                const success = await flarumDeletePost(postId, floor);
                 if (success) {
-                    // 获取当前登录用户信息
-                    const currentUsername = localStorage.getItem('flarumUsername') || '匿名用户';
-                    const now = new Date();
-                    const deleteTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+                    // 获取删除信息（从localStorage读取）
+                    const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+                    const deletedPost = deletedPosts.find(d => d.postId === postId);
                     
                     // 在原地显示删除提示
                     const postElement = document.getElementById(`post-${floor}`);
-                    if (postElement) {
+                    if (postElement && deletedPost) {
                         postElement.innerHTML = `
                             <div class="post" id="post-${floor}" style="background-color: #f5f5f5; border: 1px dashed #ccc; padding: 15px; text-align: center;">
-                                <p style="color: #999; font-size: 14px;">此楼层已在【${deleteTime}】被【${currentUsername}】删除</p>
+                                <p style="color: #999; font-size: 14px;">此楼层已在【${deletedPost.deletedAt}】被【${deletedPost.deletedBy}】删除</p>
                             </div>
                         `;
                     }
@@ -1480,6 +1497,31 @@ async function setupDeleteButtons(allPosts, postData) {
                     window.location.href = 'index.html';
                 }
             });
+        }
+    }
+}
+
+// 显示已删除帖子的占位提示
+function showDeletedPostsPlaceholder() {
+    const deletedPosts = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
+    if (!deletedPosts || deletedPosts.length === 0) return;
+    
+    // 获取当前讨论ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const discussionId = urlParams.get('id');
+    
+    for (const deleted of deletedPosts) {
+        // 检查该删除记录是否属于当前讨论（通过楼层判断）
+        const postElement = document.getElementById(`post-${deleted.floor}`);
+        if (postElement) {
+            // 如果帖子元素存在但内容不是删除提示，则替换为删除提示
+            if (!postElement.innerHTML.includes('已删除')) {
+                postElement.innerHTML = `
+                    <div class="post" id="post-${deleted.floor}" style="background-color: #f5f5f5; border: 1px dashed #ccc; padding: 15px; text-align: center;">
+                        <p style="color: #999; font-size: 14px;">此楼层已在【${deleted.deletedAt}】被【${deleted.deletedBy}】删除</p>
+                    </div>
+                `;
+            }
         }
     }
 }
