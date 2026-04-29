@@ -102,7 +102,8 @@ async function flarumRequest(path, options = {}) {
     const response = await fetch(url, {
         method: options.method || 'GET',
         headers,
-        body: options.json !== undefined ? JSON.stringify(options.json) : options.body
+        body: options.json !== undefined ? JSON.stringify(options.json) : options.body,
+        credentials: 'include'
     });
 
     if (!response.ok) {
