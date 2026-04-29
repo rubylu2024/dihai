@@ -1488,21 +1488,47 @@ async function updatePostUserBadges(allPosts) {
     for (const post of allPosts) {
         if (!post.userId) continue;
         
-        const badge = await getUserGroupBadge(post.userId);
-        if (!badge) continue;
+        const badgeType = await getUserGroupBadgeType(post.userId);
+        if (!badgeType) continue;
         
         // 更新帖子中的用户名显示
         const posterNameElements = document.querySelectorAll(`#post-${post.floor} .poster-name`);
         for (const element of posterNameElements) {
-            if (!element.textContent.includes(badge)) {
-                element.textContent = badge + element.textContent;
+            // 检查是否已经添加过标志
+            if (element.querySelector('.group-badge')) continue;
+            
+            // 创建标志元素
+            const badge = document.createElement('span');
+            badge.className = 'group-badge group-badge-' + badgeType;
+            badge.style.cssText = `
+                display: inline-block;
+                width: 16px;
+                height: 16px;
+                border-radius: 2px;
+                margin-right: 4px;
+                vertical-align: middle;
+                text-align: center;
+                font-size: 10px;
+                line-height: 16px;
+                color: white;
+                font-weight: bold;
+            `;
+            
+            if (badgeType === 'admin') {
+                badge.style.backgroundColor = '#cc0000';
+                badge.textContent = '管';
+            } else if (badgeType === 'mod') {
+                badge.style.backgroundColor = '#0066cc';
+                badge.textContent = '版';
             }
+            
+            element.insertBefore(badge, element.firstChild);
         }
     }
 }
 
-// 获取用户组标志
-async function getUserGroupBadge(userId) {
+// 获取用户组标志类型
+async function getUserGroupBadgeType(userId) {
     if (!userId) return '';
     
     try {
@@ -1511,11 +1537,11 @@ async function getUserGroupBadge(userId) {
         
         // 检查是否是管理员（组ID为1）
         const isAdmin = groups.some(g => g.id === '1');
-        if (isAdmin) return '[管]';
+        if (isAdmin) return 'admin';
         
         // 检查是否是版主（组ID为2）
         const isMod = groups.some(g => g.id === '2');
-        if (isMod) return '[版]';
+        if (isMod) return 'mod';
     } catch {
         // 忽略错误
     }
