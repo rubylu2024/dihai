@@ -537,13 +537,13 @@ body::before {
 .hot-topics h3 {
     font-size: 16px;
     font-weight: bold;
-    margin-bottom: 0;
-    color: white;
+    margin-bottom: 6px;
+    color: black;
     background-color: #EDA59A;
     display: inline-block;
     padding: 4px 12px;
     margin-left: -10px;
-    margin-top: -10px;
+    margin-top: -14px;
     border: none;
 }
 
