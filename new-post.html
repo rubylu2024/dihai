@@ -206,15 +206,14 @@
         }
         
         .emoji-picker {
-            display: none;
-            position: absolute;
+            display: block;
+            position: relative;
             background: #fff;
             border: 1px solid #ddd;
             border-radius: 4px;
             padding: 10px;
-            z-index: 1000;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-            max-height: 250px;
+            margin-bottom: 10px;
+            max-height: 200px;
             overflow-y: auto;
         }
         
@@ -445,7 +444,7 @@
                                         🖼️
                                     </button>
                                 </div>
-                                <div class="emoji-picker" id="emoji-picker" style="display: none; position: relative;">
+                                <div class="emoji-picker" id="emoji-picker" style="position: relative;">
                                     <div class="emoji-grid">
                                         ${['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','☹️','😮‍💨','😥','😢','😭','😱','😨','😰','😥','🤯','😲','😳','🥵','🤤','🥴','😵','💫','🤢','🤮','🤒','🤕','😷','🤧','🥶','🥵','😴','😪','🤫','🤭','🤗','🤑','🤤','😋','😛','😜','🤪','😝','🤐','🤔','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','🧐','🤓','😎','🥸','🥳','🤠','🥰','😍','🤩','😘','😗','😚','😙','🙂','😊','😇','🤣','😂','😅','😆','😁','😄','😃','😀'].map(e => `<span class="emoji-item" data-emoji="${e}">${e}</span>`).join('')}
                                     </div>
@@ -575,17 +574,6 @@
                 const emojiItem = e.target.closest('.emoji-item');
                 if (emojiItem) {
                     insertAtCursor(textarea, emojiItem.dataset.emoji);
-                    emojiPicker.style.display = 'none';
-                }
-            });
-
-            document.addEventListener('click', function(e) {
-                if (emojiPicker.style.display === 'block') {
-                    const isInsideToolbar = e.target.closest('.toolbar');
-                    const isInsidePicker = e.target.closest('.emoji-picker');
-                    if (!isInsideToolbar && !isInsidePicker) {
-                        emojiPicker.style.display = 'none';
-                    }
                 }
             });
 
