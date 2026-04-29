@@ -260,6 +260,7 @@ function flarumDiscussionToPostData(apiJson) {
 
     const postData = {
         id: Number(discussion.id),
+        userId: firstUserId ? Number(firstUserId) : null,
         title: discussion.attributes?.title || '',
         author: firstUser?.attributes?.displayName || firstUser?.attributes?.username || '匿名用户',
         authorLevel: 'Lv.1 新手上路',
@@ -567,6 +568,26 @@ async function flarumDeletePost(postId) {
         return true;
     } catch (error) {
         console.error('删除帖子失败:', error);
+        alert('删除帖子失败，可能是权限不足或网络问题。');
+        return false;
+    }
+}
+
+// 删除整个讨论（帖子）
+async function flarumDeleteDiscussion(discussionId) {
+    const token = getFlarumToken();
+    if (!token) {
+        alert('请先登录后再操作。');
+        return false;
+    }
+
+    try {
+        await flarumRequest(`/discussions/${discussionId}`, {
+            method: 'DELETE'
+        });
+        return true;
+    } catch (error) {
+        console.error('删除讨论失败:', error);
         alert('删除帖子失败，可能是权限不足或网络问题。');
         return false;
     }
@@ -1292,6 +1313,7 @@ function renderForumThread(postData) {
             <span>作者：<a href="#" style="color: #0066cc;">${postData.author}</a></span> | 
             <span>发表于：${postData.publishTime}</span> | 
             <span>浏览：${postData.viewCount}次</span>
+            <a href="#" id="delete-discussion-link" style="display: none; margin-left: 10px; color: #cc0000;">删除帖子</a>
         </div>
         
         ${currentPagePosts.map((post, index) => {
@@ -1337,7 +1359,7 @@ function renderForumThread(postData) {
     `;
 
     setupReplyButtons(postData);
-    setupDeleteButtons(allPosts);
+    setupDeleteButtons(allPosts, postData);
     
     // 页面加载后检查URL锚点，进行高亮
     setTimeout(() => {
@@ -1380,7 +1402,7 @@ function setupReplyButtons(postData) {
 }
 
 // 设置删除按钮
-async function setupDeleteButtons(allPosts) {
+async function setupDeleteButtons(allPosts, postData) {
     const deleteLinks = document.querySelectorAll('.delete-link');
     
     for (const link of deleteLinks) {
@@ -1417,6 +1439,53 @@ async function setupDeleteButtons(allPosts) {
                 }
             });
         }
+    }
+    
+    // 设置删除整个帖子的按钮
+    const deleteDiscussionLink = document.getElementById('delete-discussion-link');
+    if (deleteDiscussionLink && postData) {
+        // 检查是否有权限删除整个帖子（主题帖的作者或管理员）
+        const isAuthor = localStorage.getItem('flarumUserId') === String(postData.userId);
+        const isAdmin = await isCurrentUserAdmin();
+        
+        if (isAuthor || isAdmin) {
+            deleteDiscussionLink.style.display = 'inline';
+            
+            deleteDiscussionLink.addEventListener('click', async function(e) {
+                e.preventDefault();
+                
+                // 二次确认
+                if (!confirm(`确定要删除整个帖子「${postData.title}」吗？此操作将删除所有回复，不可撤销。`)) {
+                    return;
+                }
+                
+                // 执行删除
+                const success = await flarumDeleteDiscussion(postData.id);
+                if (success) {
+                    alert('删除成功！');
+                    // 返回首页
+                    window.location.href = 'index.html';
+                }
+            });
+        }
+    }
+}
+
+// 检查当前用户是否是管理员
+async function isCurrentUserAdmin() {
+    const token = getFlarumToken();
+    if (!token) return false;
+    
+    const userId = localStorage.getItem('flarumUserId');
+    if (!userId) return false;
+    
+    try {
+        const userJson = await flarumRequest(`/users/${userId}`);
+        const groups = userJson?.data?.relationships?.groups?.data || [];
+        // 检查是否在管理员组（通常ID为1）
+        return groups.some(g => g.id === '1');
+    } catch {
+        return false;
     }
 }
 
