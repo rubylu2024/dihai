@@ -180,28 +180,52 @@ function storeFlarumReplyToFloor(discussionId, postId, replyToFloor) {
 function extractReplyMetaFromContentHtml(contentHtml) {
     const original = typeof contentHtml === 'string' ? contentHtml : '';
 
-    if (typeof DOMParser === 'undefined') {
-        const m = original.match(/^\s*<p>\s*回复\s+(?:.*?\()?(\d+)楼\)?：\s*<\/p>\s*/);
-        if (m) {
-            return { replyToFloor: Number(m[1]), cleanedHtml: original.replace(m[0], '') };
-        }
-        return { replyToFloor: null, cleanedHtml: original };
-    }
-
     try {
         const doc = new DOMParser().parseFromString(original, 'text/html');
         const first = doc.body.firstElementChild;
+
         if (first && first.tagName === 'P') {
-            const text = (first.textContent || '').trim();
-            const m = text.match(/^回复\s+(?:.*?\()?(\d+)楼\)?：\s*$/);
+            let text = (first.textContent || '').trim();
+
+            // 支持：
+            // 回复 3楼：
+            // 回复 张三(3楼)：
+            // 回复 张三(3楼)：\n\n正文
+            const m = text.match(/^回复\s+(?:.*?\()?(\d+)楼\)?：(?:\\n\\n|\n\n|\s*)?/);
+
             if (m) {
-                first.remove();
-                return { replyToFloor: Number(m[1]), cleanedHtml: doc.body.innerHTML };
+                const replyToFloor = Number(m[1]);
+
+                text = text.replace(/^回复\s+(?:.*?\()?(\d+)楼\)?：(?:\\n\\n|\n\n|\s*)?/, '').trim();
+
+                if (text) {
+                    first.textContent = text;
+                } else {
+                    first.remove();
+                }
+
+                return {
+                    replyToFloor,
+                    cleanedHtml: doc.body.innerHTML
+                        .replace(/\\n\\n/g, '')
+                        .replace(/\n\n/g, '')
+                };
             }
         }
-        return { replyToFloor: null, cleanedHtml: original };
+
+        return {
+            replyToFloor: null,
+            cleanedHtml: original
+                .replace(/\\n\\n/g, '')
+                .replace(/\n\n/g, '')
+        };
     } catch {
-        return { replyToFloor: null, cleanedHtml: original };
+        return {
+            replyToFloor: null,
+            cleanedHtml: original
+                .replace(/\\n\\n/g, '')
+                .replace(/\n\n/g, '')
+        };
     }
 }
 
@@ -1298,7 +1322,7 @@ function setupReplyButtons(postData) {
             const content = this.dataset.content;
             
             replyTargetInput.value = floor;
-            replyContent.value = `回复 ${author}(${floor}楼)：\n\n`;
+            replyContent.value = `回复 ${author}(${floor}楼)：`;
             replyBoxTitle.textContent = `回复 ${author}(${floor}楼)`;
             document.getElementById('cancel-reply').style.display = 'inline';
             replyContent.focus();
@@ -1445,10 +1469,6 @@ function setupReplyForm() {
         if (isFlarumConfigured()) {
             const replyToFloor = replyTo ? Number(replyTo) : null;
             let contentToSend = content;
-
-            if (replyToFloor && /^回复\s+.*?\(\d+楼\)：\n(?!\n)/.test(contentToSend)) {
-                contentToSend = contentToSend.replace(/^回复\s+.*?\(\d+楼\)：\n/, (m) => m + '\n');
-            }
 
             try {
                 const newPostId = await flarumCreatePost({ discussionId: postData.id, content: contentToSend });
@@ -1647,7 +1667,7 @@ function insertNewCommentToPage(comment, postData) {
             
             if (replyTargetInput && replyContent && replyBoxTitle) {
                 replyTargetInput.value = floor;
-                replyContent.value = `回复 ${author}(${floor}楼)：\n\n`;
+                replyContent.value = `回复 ${author}(${floor}楼)：`;
                 replyBoxTitle.textContent = `回复 ${author}(${floor}楼)`;
                 document.getElementById('cancel-reply').style.display = 'inline';
                 replyContent.focus();
