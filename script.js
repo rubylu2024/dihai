@@ -384,6 +384,7 @@ async function flarumLoadRecentReplies() {
             
             results.push({
                 discussionId: Number(discussionId),
+                postId: Number(post.id), // 添加帖子ID用于锚点跳转
                 title: discussion?.attributes?.title || '',
                 author: user?.attributes?.displayName || user?.attributes?.username || '匿名用户',
                 time: post.attributes?.createdAt || '',
@@ -837,19 +838,19 @@ function renderPostListIntoIndex(recentReplies) {
         <table class="posts-table">
             <thead>
                 <tr>
-                    <th style="width: 35%;">帖子标题</th>
-                    <th style="width: 30%;">回复内容</th>
+                    <th style="width: 30%;">回帖内容</th>
                     <th style="width: 18%;">回帖人</th>
                     <th style="width: 17%;">时间</th>
+                    <th style="width: 35%;">帖子标题</th>
                 </tr>
             </thead>
             <tbody>
                 ${safeList.length > 0 ? safeList.map((r) => `
                     <tr>
-                        <td><a href="post.html?id=${encodeURIComponent(r.discussionId)}">${truncate(r.title || '', 10)}</a></td>
-                        <td>${truncate(r.content || '', 20)}</td>
+                        <td><a href="post.html?id=${encodeURIComponent(r.discussionId)}#reply-${r.postId}" style="color: #0066cc;">${truncate(r.content || '', 20)}</a></td>
                         <td>${r.author || ''}</td>
                         <td>${(r.time || '').slice(0, 16).replace('T', ' ') || ''}</td>
+                        <td><a href="post.html?id=${encodeURIComponent(r.discussionId)}">${truncate(r.title || '', 10)}</a></td>
                     </tr>
                 `).join('') : `<tr><td colspan="4" style="text-align: center; padding: 20px;">暂无回复</td></tr>`}
             </tbody>
