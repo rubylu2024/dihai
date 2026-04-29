@@ -1433,9 +1433,20 @@ async function setupDeleteButtons(allPosts, postData) {
                 // 执行删除
                 const success = await flarumDeletePost(postId);
                 if (success) {
-                    alert('删除成功！');
-                    // 刷新页面
-                    window.location.reload();
+                    // 获取当前登录用户信息
+                    const currentUsername = localStorage.getItem('flarumUsername') || '匿名用户';
+                    const now = new Date();
+                    const deleteTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+                    
+                    // 在原地显示删除提示
+                    const postElement = document.getElementById(`post-${floor}`);
+                    if (postElement) {
+                        postElement.innerHTML = `
+                            <div class="post" id="post-${floor}" style="background-color: #f5f5f5; border: 1px dashed #ccc; padding: 15px; text-align: center;">
+                                <p style="color: #999; font-size: 14px;">此楼层已在【${deleteTime}】被【${currentUsername}】删除</p>
+                            </div>
+                        `;
+                    }
                 }
             });
         }
