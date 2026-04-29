@@ -1871,6 +1871,11 @@ function setupPopupAd() {
     const leftCloseBtn = document.querySelector('.left-close-btn');
     const popupAudio = document.getElementById('popup-audio');
     
+    // 设置弹窗广告音量为1/3
+    if (popupAudio) {
+        popupAudio.volume = 1/3;
+    }
+    
     function updateLeftCloseBtnPosition() {
         if (leftCloseBtn && popupAd.style.display === 'block') {
             const popupHeight = popupAd.offsetHeight;
