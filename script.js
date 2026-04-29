@@ -279,42 +279,51 @@ function flarumDiscussionToPostData(apiJson) {
 async function flarumLoadDiscussion(postId) {
     const id = String(postId);
 
-    const discussionJson = await flarumRequest(
-        `/discussions/${encodeURIComponent(id)}?include=user`
-    );
-
-    let allPosts = [];
-    let allIncluded = discussionJson.included || [];
-    let offset = 0;
-    const limit = 50;
-
-    while (true) {
-        const postsJson = await flarumRequest(
-            `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=${offset}&include=user`
+    try {
+        const discussionJson = await flarumRequest(
+            `/discussions/${encodeURIComponent(id)}?include=user`
         );
 
-        const posts = Array.isArray(postsJson.data) ? postsJson.data : [];
-        allPosts = allPosts.concat(posts);
-
-        if (Array.isArray(postsJson.included)) {
-            allIncluded = allIncluded.concat(postsJson.included);
+        if (!discussionJson?.data) {
+            return null;
         }
 
-        if (posts.length < limit) break;
-        offset += limit;
+        let allPosts = [];
+        let allIncluded = discussionJson.included || [];
+        let offset = 0;
+        const limit = 50;
+
+        while (true) {
+            const postsJson = await flarumRequest(
+                `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=${offset}&include=user`
+            );
+
+            const posts = Array.isArray(postsJson.data) ? postsJson.data : [];
+            allPosts = allPosts.concat(posts);
+
+            if (Array.isArray(postsJson.included)) {
+                allIncluded = allIncluded.concat(postsJson.included);
+            }
+
+            if (posts.length < limit) break;
+            offset += limit;
+        }
+
+        discussionJson.included = [
+            ...allIncluded,
+            ...allPosts
+        ];
+
+        discussionJson.data.relationships = discussionJson.data.relationships || {};
+        discussionJson.data.relationships.posts = {
+            data: allPosts.map(p => ({ type: 'posts', id: String(p.id) }))
+        };
+
+        return flarumDiscussionToPostData(discussionJson);
+    } catch (error) {
+        console.error('加载帖子失败:', error);
+        return null;
     }
-
-    discussionJson.included = [
-        ...allIncluded,
-        ...allPosts
-    ];
-
-    discussionJson.data.relationships = discussionJson.data.relationships || {};
-    discussionJson.data.relationships.posts = {
-        data: allPosts.map(p => ({ type: 'posts', id: String(p.id) }))
-    };
-
-    return flarumDiscussionToPostData(discussionJson);
 }
 
 async function flarumLoadDiscussionList() {
@@ -425,24 +434,25 @@ async function loadPostData(postId) {
         if (isFlarumConfigured()) {
             const fromApi = await flarumLoadDiscussion(postId);
             if (fromApi) return fromApi;
+            
+            // API 返回 null，表示加载失败
+            throw new Error('无法从 Flarum API 加载帖子数据');
         }
-        const response = await fetch(`data/post_${postId}.json`);
-        if (!response.ok) {
-            throw new Error(`帖子数据文件不存在: post_${postId}.json`);
-        }
-        return await response.json();
+        
+        throw new Error('论坛后端未配置');
     } catch (error) {
-        console.warn('加载帖子数据失败，使用备用数据:', error);
-        // 显示错误提示后使用备用数据
+        console.error('加载帖子数据失败:', error);
+        // 显示错误提示
         const threadContainer = document.getElementById('forum-thread');
         if (threadContainer) {
-            threadContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #cc0000;">加载失败，显示备用数据...</div>';
-            setTimeout(() => {
-                const fallbackData = getFallbackPostData(postId);
-                if (fallbackData) renderForumThread(fallbackData);
-            }, 1000);
+            threadContainer.innerHTML = `
+                <div style="padding: 40px 20px; text-align: center;">
+                    <p style="color: #cc0000; font-size: 16px; margin-bottom: 10px;">抱歉，加载此内容时出错</p>
+                    <p style="color: #666; font-size: 14px;">${error.message || '请稍后刷新页面重试'}</p>
+                </div>
+            `;
         }
-        return getFallbackPostData(postId);
+        return null;
     }
 }
 
