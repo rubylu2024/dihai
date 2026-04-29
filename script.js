@@ -337,6 +337,30 @@ async function flarumLoadDiscussionList() {
     });
 }
 
+// 动态加载首页热帖和近期帖子链接
+async function renderDynamicHomeLinks() {
+    try {
+        const discussions = await flarumLoadDiscussionList();
+        
+        const hotTopicsList = document.getElementById('hot-topics-list');
+        const recentHotList = document.getElementById('recent-hot-list');
+        
+        if (hotTopicsList && discussions.length > 0) {
+            hotTopicsList.innerHTML = discussions.slice(0, 10).map(p => 
+                `<li><a href="post.html?id=${p.id}">${p.title}</a></li>`
+            ).join('');
+        }
+        
+        if (recentHotList && discussions.length > 0) {
+            recentHotList.innerHTML = discussions.slice(0, 8).map(p => 
+                `<li><a href="post.html?id=${p.id}">${p.title}</a></li>`
+            ).join('');
+        }
+    } catch (error) {
+        console.warn('动态加载首页帖子列表失败:', error);
+    }
+}
+
 
 
 async function flarumCreateDiscussion({ title, content, tagIds = [] }) {
@@ -766,6 +790,8 @@ window.addEventListener('DOMContentLoaded', function() {
     if (isFlarumConfigured()) {
         console.log('Flarum API 配置已完成，正在测试连接...');
         testFlarumConnection();
+        // 动态加载首页热帖和近期帖子链接
+        renderDynamicHomeLinks();
     } else {
         console.log('Flarum API 未配置');
     }
