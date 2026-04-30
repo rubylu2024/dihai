@@ -647,6 +647,7 @@ async function canDeletePost(post) {
 // 动态加载帖子数据
 async function loadPostData(postId) {
     try {
+        console.log('当前使用的是 Flarum API 版本 loadPostData');
         console.log('loadPostData: 开始加载帖子数据，postId:', postId);
         
         // 显示加载状态
