@@ -90,24 +90,28 @@ async function flarumRequest(path, options = {}) {
         headers['Content-Type'] = 'application/json';
     }
 
-    // 只有当不是强制匿名且有token时才添加认证头
-    if (!options.anonymous) {
+    if (options.auth === true) {
         const token = getFlarumToken();
         const userId = localStorage.getItem('flarumUserId');
 
         if (token && !headers.Authorization) {
-        headers.Authorization = userId
-            ? `Token ${token}; userId=${userId}`
-            : `Token ${token}`;
+            headers.Authorization = userId
+                ? `Token ${token}; userId=${userId}`
+                : `Token ${token}`;
         }
     }
 
-    const response = await fetch(url, {
+    const fetchOptions = {
         method: options.method || 'GET',
         headers,
-        body: options.json !== undefined ? JSON.stringify(options.json) : options.body,
-        credentials: 'include'
-    });
+        body: options.json !== undefined ? JSON.stringify(options.json) : options.body
+    };
+
+    if (options.withCredentials === true) {
+        fetchOptions.credentials = 'include';
+    }
+
+    const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
         let detail = '';
@@ -304,8 +308,7 @@ async function flarumLoadDiscussion(postId) {
     try {
         // 获取 discussion 基本信息
         const discussionJson = await flarumRequest(
-            `/discussions/${encodeURIComponent(id)}?include=user`,
-            { anonymous: true }
+            `/discussions/${encodeURIComponent(id)}?include=user`
         );
 
         if (!discussionJson?.data) {
@@ -316,8 +319,7 @@ async function flarumLoadDiscussion(postId) {
         const limit = 30;
 
         const postsJson = await flarumRequest(
-            `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=0&include=user`,
-            { anonymous: true }
+            `/posts?filter[discussion]=${encodeURIComponent(id)}&sort=number&page[limit]=${limit}&page[offset]=0&include=user`
         );
 
         const allPosts = Array.isArray(postsJson.data) ? postsJson.data : [];
@@ -344,7 +346,7 @@ async function flarumLoadDiscussion(postId) {
 
 async function flarumLoadDiscussionList() {
     try {
-        const json = await flarumRequest('/discussions?sort=-createdAt&page[limit]=20&include=user', { anonymous: true });
+        const json = await flarumRequest('/discussions?sort=-createdAt&page[limit]=20&include=user');
         const discussions = Array.isArray(json?.data) ? json.data : [];
         const included = json?.included || [];
 
@@ -370,7 +372,7 @@ async function flarumLoadDiscussionList() {
 // 获取最新回复列表
 async function flarumLoadRecentReplies() {
     try {
-        const json = await flarumRequest('/posts?sort=-createdAt&page[limit]=20&include=discussion,user', { anonymous: true });
+        const json = await flarumRequest('/posts?sort=-createdAt&page[limit]=20&include=discussion,user');
         const posts = Array.isArray(json?.data) ? json.data : [];
         const included = json?.included || [];
         
@@ -504,6 +506,7 @@ async function flarumCreateDiscussion({ title, content, tagIds = [] }) {
 
     const json = await flarumRequest('/discussions', {
         method: 'POST',
+        auth: true,
         json: {
             data: {
                 type: 'discussions',
@@ -524,6 +527,7 @@ async function flarumCreatePost({ discussionId, content }) {
 
     const json = await flarumRequest('/posts', {
         method: 'POST',
+        auth: true,
         json: {
             data: {
                 type: 'posts',
@@ -557,6 +561,7 @@ async function flarumDeletePost(postId, floor) {
         // 使用PATCH更新帖子内容，而不是DELETE删除
         await flarumRequest(`/posts/${postId}`, {
             method: 'PATCH',
+            auth: true,
             json: {
                 data: {
                     type: 'posts',
@@ -604,7 +609,8 @@ async function flarumDeleteDiscussion(discussionId) {
 
     try {
         await flarumRequest(`/discussions/${discussionId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            auth: true
         });
         return true;
     } catch (error) {
@@ -1652,7 +1658,7 @@ async function isCurrentUserAdmin() {
     if (!userId) return false;
     
     try {
-        const userJson = await flarumRequest(`/users/${userId}`);
+        const userJson = await flarumRequest(`/users/${userId}`, { auth: true });
         const groups = userJson?.data?.relationships?.groups?.data || [];
         // 检查是否在管理员组（通常ID为1）
         return groups.some(g => g.id === '1');
@@ -1671,7 +1677,7 @@ async function getCurrentUser() {
     }
     
     try {
-        const json = await flarumRequest(`/users/${userId}`);
+        const json = await flarumRequest(`/users/${userId}`, { auth: true });
         if (json?.data) {
             return {
                 id: json.data.id,
