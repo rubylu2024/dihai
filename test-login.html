@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -47,8 +47,8 @@
     <h1>Flarum 登录测试</h1>
 
     <div class="test-section">
-        <h3>1. 测试 API 连通�?/h3>
-        <button onclick="testApiConnectivity()">测试 API 连通�?/button>
+        <h3>1. 测试 API 连通�?/h3>
+        <button onclick="testApiConnectivity()">测试 API 连通�?/button>
         <pre id="connectivity-result">等待测试...</pre>
     </div>
 
@@ -63,8 +63,8 @@
     </div>
 
     <div class="test-section">
-        <h3>3. 检�?CORS 配置</h3>
-        <button onclick="checkCors()">检�?CORS</button>
+        <h3>3. 检�?CORS 配置</h3>
+        <button onclick="checkCors()">检�?CORS</button>
         <pre id="cors-result">等待测试...</pre>
     </div>
 
@@ -80,8 +80,8 @@
                         'Accept': 'application/vnd.api+json'
                     }
                 });
-                resultEl.textContent = `状�? ${response.status} ${response.statusText}\n`;
-                resultEl.textContent += `CORS: ${response.headers.get('Access-Control-Allow-Origin') || '未配�?}\n`;
+                resultEl.textContent = `状�? ${response.status} ${response.statusText}\n`;
+                resultEl.textContent += `CORS: ${response.headers.get('Access-Control-Allow-Origin') || '未配�?}\n`;
                 const data = await response.json();
                 resultEl.textContent += `数据: ${JSON.stringify(data, null, 2).substring(0, 500)}...`;
                 resultEl.parentElement.className = 'test-section success';
@@ -97,7 +97,7 @@
             const resultEl = document.getElementById('login-result');
 
             if (!username || !password) {
-                resultEl.textContent = '请输入用户名和密�?;
+                resultEl.textContent = '请输入用户名和密�?;
                 return;
             }
 
@@ -114,8 +114,8 @@
                     })
                 });
 
-                resultEl.textContent = `状�? ${response.status} ${response.statusText}\n`;
-                resultEl.textContent += `CORS�? ${response.headers.get('Access-Control-Allow-Origin') || '未配�?}\n`;
+                resultEl.textContent = `状�? ${response.status} ${response.statusText}\n`;
+                resultEl.textContent += `CORS�? ${response.headers.get('Access-Control-Allow-Origin') || '未配�?}\n`;
 
                 const text = await response.text();
                 resultEl.textContent += `响应内容: ${text.substring(0, 500)}\n`;
@@ -123,10 +123,10 @@
                 if (response.ok) {
                     const data = JSON.parse(text);
                     if (data.token) {
-                        resultEl.textContent += `\n�?登录成功! Token: ${data.token.substring(0, 20)}...`;
+                        resultEl.textContent += `\n�?登录成功! Token: ${data.token.substring(0, 20)}...`;
                         resultEl.parentElement.className = 'test-section success';
                     } else {
-                        resultEl.textContent += `\n�?响应中没�?token`;
+                        resultEl.textContent += `\n�?响应中没�?token`;
                         resultEl.parentElement.className = 'test-section error';
                     }
                 } else {
@@ -144,10 +144,10 @@
                 const response = await fetch(API_BASE + '/discussions', {
                     method: 'OPTIONS'
                 });
-                resultEl.textContent = `预检请求状�? ${response.status}\n`;
-                resultEl.textContent += `Access-Control-Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin') || '未配�?}\n`;
-                resultEl.textContent += `Access-Control-Allow-Methods: ${response.headers.get('Access-Control-Allow-Methods') || '未配�?}\n`;
-                resultEl.textContent += `Access-Control-Allow-Headers: ${response.headers.get('Access-Control-Allow-Headers') || '未配�?}\n`;
+                resultEl.textContent = `预检请求状�? ${response.status}\n`;
+                resultEl.textContent += `Access-Control-Allow-Origin: ${response.headers.get('Access-Control-Allow-Origin') || '未配�?}\n`;
+                resultEl.textContent += `Access-Control-Allow-Methods: ${response.headers.get('Access-Control-Allow-Methods') || '未配�?}\n`;
+                resultEl.textContent += `Access-Control-Allow-Headers: ${response.headers.get('Access-Control-Allow-Headers') || '未配�?}\n`;
 
                 if (!response.headers.get('Access-Control-Allow-Origin')) {
                     resultEl.textContent += `\n⚠️ CORS 未配置！这可能导致跨域请求失败`;

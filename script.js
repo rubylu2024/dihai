@@ -673,31 +673,15 @@ async function loadPostData(postId) {
         console.error('loadPostData: 加载帖子数据失败:', error);
         console.error('loadPostData: 错误详情:', error.detail);
         
-        // 检查是否未登录
-        const isLoggedIn = !!getFlarumToken();
-        
-        // 显示登录提示或错误提示
         const threadContainer = document.getElementById('forum-thread');
         if (threadContainer) {
-            if (!isLoggedIn) {
-                // 未登录，显示登录提示
-                threadContainer.innerHTML = `
-                    <div style="padding: 40px 20px; text-align: center;">
-                        <p style="color: #cc0000; font-size: 16px; margin-bottom: 10px;">请登录后查看帖子内容</p>
-                        <p style="color: #666; font-size: 14px; margin-bottom: 20px;">登录后可以浏览帖子、发表回复和参与讨论</p>
-                        <a href="login.html?redirect=${encodeURIComponent(window.location.href)}" style="display: inline-block; padding: 10px 20px; background: #cc0000; color: white; text-decoration: none; border-radius: 4px;">立即登录</a>
-                    </div>
-                `;
-            } else {
-                // 已登录但加载失败，显示错误提示
-                threadContainer.innerHTML = `
-                    <div style="padding: 40px 20px; text-align: center;">
-                        <p style="color: #cc0000; font-size: 16px; margin-bottom: 10px;">抱歉，加载此内容时出错</p>
-                        <p style="color: #666; font-size: 14px;">${error.message || '请稍后刷新页面重试'}</p>
-                        <p style="color: #999; font-size: 12px; margin-top: 10px;">错误码: ${error.detail || '未知'}</p>
-                    </div>
-                `;
-            }
+            threadContainer.innerHTML = `
+                <div style="padding: 40px 20px; text-align: center;">
+                    <p style="color: #cc0000; font-size: 16px; margin-bottom: 10px;">抱歉，加载此内容时出错</p>
+                    <p style="color: #666; font-size: 14px;">${error.message || '请稍后刷新页面重试'}</p>
+                    <p style="color: #999; font-size: 12px; margin-top: 10px;">错误码: ${error.detail || '未知'}</p>
+                </div>
+            `;
         }
         return null;
     }
